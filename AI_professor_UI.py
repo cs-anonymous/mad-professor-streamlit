@@ -365,6 +365,7 @@ class AIProfessorUI(QMainWindow):
         # 连接信号
         self.settings_bar.tts_toggled.connect(self._on_tts_toggle)
         self.settings_bar.language_toggled.connect(self.toggle_language)
+        self.settings_bar.md_processor_toggled.connect(self._on_md_processor_toggle)
         
         # 添加设置栏到工具栏
         toolbar_layout = QHBoxLayout(toolbar)
@@ -600,3 +601,13 @@ class AIProfessorUI(QMainWindow):
             self.ai_manager.set_tts_enabled(checked)
             status = "启用" if checked else "禁用"
             self.statusBar().showMessage(f"已{status}TTS语音功能")
+
+    def _on_md_processor_toggle(self, checked):
+        """处理Markdown处理器切换事件"""
+        # 使用data_manager来切换处理器类型
+        if hasattr(self, 'data_manager') and hasattr(self.data_manager, 'toggle_md_processor'):
+            is_slides = self.data_manager.toggle_md_processor(checked)
+            processor_type = "幻灯片处理器" if is_slides else "标准处理器"
+            self.statusBar().showMessage(f"已切换至{processor_type}")
+            # 更新UI状态
+            self.settings_bar.update_md_processor_status(is_slides)

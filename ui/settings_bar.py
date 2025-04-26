@@ -9,6 +9,7 @@ class SettingsBar(QWidget):
     # 定义信号
     tts_toggled = pyqtSignal(bool)  # TTS开关信号
     language_toggled = pyqtSignal()  # 语言切换信号
+    md_processor_toggled = pyqtSignal(bool)  # MarkdownProcessor切换信号
     
     def __init__(self, parent=None):
         """初始化设置栏"""
@@ -41,6 +42,12 @@ class SettingsBar(QWidget):
         self.tts_action.setChecked(True)  # 默认启用
         self.tts_action.triggered.connect(self._on_tts_toggle)
         settings_menu.addAction(self.tts_action)
+        
+        # 添加MarkdownProcessor切换选项
+        self.md_processor_action = QAction("使用幻灯片处理器", settings_menu, checkable=True)
+        self.md_processor_action.setChecked(False)  # 默认使用普通处理器
+        self.md_processor_action.triggered.connect(self._on_md_processor_toggle)
+        settings_menu.addAction(self.md_processor_action)
         
         # 将菜单关联到按钮
         settings_button.clicked.connect(
@@ -113,6 +120,10 @@ class SettingsBar(QWidget):
     def _on_tts_toggle(self, checked):
         """处理TTS开关切换"""
         self.tts_toggled.emit(checked)
+    
+    def _on_md_processor_toggle(self, checked):
+        """处理MarkdownProcessor切换"""
+        self.md_processor_toggled.emit(checked)
         
     def _on_language_toggle(self):
         """处理语言切换"""
@@ -149,4 +160,12 @@ class SettingsBar(QWidget):
                 #langButton:hover {
                     background-color: rgba(65, 105, 225, 0.4);
                 }
-            """) 
+            """)
+            
+    def update_md_processor_status(self, is_slides_processor):
+        """更新MarkdownProcessor状态"""
+        if is_slides_processor:
+            self.md_processor_action.setText("使用论文格式处理器(原生)")
+        else:
+            self.md_processor_action.setText("使用任意格式处理器")
+        self.md_processor_action.setChecked(is_slides_processor) 

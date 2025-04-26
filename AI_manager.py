@@ -225,7 +225,7 @@ class AIManager(QObject):
         self.accumulated_response += sentence
         
         # 删除此行，不在AI生成时触发显示
-        # self.ai_sentence_ready.emit(sentence, self.current_request_id)
+        self.ai_sentence_ready.emit(sentence, self.current_request_id)
         
         # 处理滚动信息 - 如果有滚动信息且markdown_view被设置，则执行滚动
         if scroll_info and hasattr(self, 'markdown_view') and self.markdown_view:
