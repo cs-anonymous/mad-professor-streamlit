@@ -44,7 +44,7 @@ class SettingsBar(QWidget):
         settings_menu.addAction(self.tts_action)
         
         # 添加MarkdownProcessor切换选项
-        self.md_processor_action = QAction("使用幻灯片处理器", settings_menu, checkable=True)
+        self.md_processor_action = QAction("正在使用论文格式处理器(原生) 点击切换为任意格式", settings_menu, checkable=True)
         self.md_processor_action.setChecked(False)  # 默认使用普通处理器
         self.md_processor_action.triggered.connect(self._on_md_processor_toggle)
         settings_menu.addAction(self.md_processor_action)
@@ -165,7 +165,7 @@ class SettingsBar(QWidget):
     def update_md_processor_status(self, is_slides_processor):
         """更新MarkdownProcessor状态"""
         if is_slides_processor:
-            self.md_processor_action.setText("使用论文格式处理器(原生)")
+            self.md_processor_action.setText("正在使用任意格式处理器 点击切换为原生")
         else:
-            self.md_processor_action.setText("使用任意格式处理器")
+            self.md_processor_action.setText("正在使用论文格式处理器(原生) 点击切换为任意格式")
         self.md_processor_action.setChecked(is_slides_processor) 
