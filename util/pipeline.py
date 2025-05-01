@@ -211,6 +211,7 @@ class Pipeline(QObject):
             Dict[str, Path]: 各阶段输出文件的路径字典
         """
         try:
+            print("[Pipeline] 开始处理论文...", pdf_path, output_dir)
             # 规范化路径
             pdf_path = Path(pdf_path)
             if not pdf_path.exists():
@@ -602,5 +603,5 @@ class Pipeline(QObject):
                 'vector_store': Path(vector_store_path)
             }
         except Exception as e:
-            self.logger.error(f"RAG处理阶段失败: {str(e)}", exc_info=True)
+            self.logger.error(f"RAG处理阶段失败: {str(e)}", exc_info=True)            
             raise

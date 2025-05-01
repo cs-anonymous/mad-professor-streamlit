@@ -1,6 +1,10 @@
 #!/bin/bash
 
+# VPN
+# export http_proxy="http://127.0.0.1:7897" && export https_proxy="http://127.0.0.1:7897"s
+
 # 1. 杀死占用 8501 端口的旧进程
+# kill -9 $(sudo lsof -t -i :8501)
 pkill -f "streamlit run stream.py"
 sleep 1  # 等待进程完全退出
 

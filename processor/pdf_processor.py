@@ -37,33 +37,34 @@ class PDFProcessor:
         if not pdf_path.exists():
             raise FileNotFoundError(f"PDF文件不存在: {pdf_path}")
 
-        try:
-            # 设置输出路径
-            paper_name = pdf_path.stem
-            output_image_path = output_dir / "images"
-            local_image_path = 'images'
+        # try:
+        # 设置输出路径
+        print(f"[PDFProcessor] 开始处理PDF", pdf_path, output_dir)
+        paper_name = pdf_path.stem
+        output_image_path = output_dir / "images"
+        local_image_path = 'images'
+        
+        # 初始化图片写入器
+        image_writer = FileBasedDataWriter(str(output_image_path))
+        md_writer = FileBasedDataWriter(str(output_dir))
+        
+        # 读取PDF文件
+        reader = FileBasedDataReader("")
+        pdf_bytes = reader.read(pdf_path)  # 读取PDF内容
+        
+        # 创建数据集实例
+        ds = PymuDocDataset(pdf_bytes)
+        
+        # 处理PDF
+        self.logger.info("开始PDF处理流程...")
+        ds.apply(doc_analyze, ocr=True).pipe_ocr_mode(image_writer).dump_md(md_writer, f"{paper_name}.md", local_image_path)
+        
+        # 生成Markdown路径
+        markdown_path = output_dir / f"{paper_name}.md"
+        
+        self.logger.info(f"Markdown文件已保存到: {markdown_path}")
+        return markdown_path
             
-            # 初始化图片写入器
-            image_writer = FileBasedDataWriter(str(output_image_path))
-            md_writer = FileBasedDataWriter(str(output_dir))
-            
-            # 读取PDF文件
-            reader = FileBasedDataReader("")
-            pdf_bytes = reader.read(pdf_path)  # 读取PDF内容
-            
-            # 创建数据集实例
-            ds = PymuDocDataset(pdf_bytes)
-            
-            # 处理PDF
-            self.logger.info("开始PDF处理流程...")
-            ds.apply(doc_analyze, ocr=True).pipe_ocr_mode(image_writer).dump_md(md_writer, f"{paper_name}.md", local_image_path)
-            
-            # 生成Markdown路径
-            markdown_path = output_dir / f"{paper_name}.md"
-            
-            self.logger.info(f"Markdown文件已保存到: {markdown_path}")
-            return markdown_path
-            
-        except Exception as e:
-            self.logger.error(f"PDF处理失败: {str(e)}", exc_info=True)
-            raise
+        # except Exception as e:
+        #     self.logger.error(f"PDF处理失败: {str(e)}", exc_info=True)
+        #     raise

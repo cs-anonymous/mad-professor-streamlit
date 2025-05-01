@@ -24,7 +24,7 @@ class AIProfessorChat:
         self.logger = logging.getLogger(__name__)
         
         # 设置基础路径
-        self.base_path = os.path.dirname(os.path.abspath(__file__))
+        self.base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.output_path = os.path.join(self.base_path, "output")
         
         # 对话历史 (保持最近10条)
