@@ -22,7 +22,8 @@ class AIProfessorUI(QMainWindow):
         super().__init__()
         
         # 初始化数据管理器和AI管理器
-        self.data_manager = DataManager()
+        BASEDIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.data_manager = DataManager(BASEDIR)
         self.ai_manager = AIManager()
         
         # 设置两者互相引用

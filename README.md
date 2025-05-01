@@ -2,6 +2,10 @@
 本项目是在[林亦LYi大佬的项目](https://github.com/LYiHub/mad-professor-public)基础上优化得来的,是我自用的项目
 
 ## 更改日志:
+2025/5/1
+- 添加streamlit支持（运行stream.sh）
+- 搭建FastAPI框架（运行app.sh）
+
 2025/4/26
 - 允许非标准论文文件输入
 - 增加了设置选项进行切换原生输入和任意格式输入

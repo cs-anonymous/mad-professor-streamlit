@@ -4,7 +4,8 @@ import os
 def render_markdown(content: str, lang: str = 'zh', enable_katex: bool = True) -> str:
     """渲染Markdown内容，包含样式和公式支持"""
     # 使用与markdown_view.py相同的扩展配置
-    extensions = ['fenced_code', 'tables', 'pymdownx.arithmatex']
+    extensions = ['fenced_code', 'tables']
+    # , 'pymdownx.arithmatex'
     
     # 生成HTML内容
     html_content = markdown.markdown(content, extensions=extensions)
@@ -160,24 +161,6 @@ def render_markdown(content: str, lang: str = 'zh', enable_katex: bool = True) -
 def katex_scripts():
     """生成KaTeX渲染脚本"""
     return """
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/contrib/auto-render.min.js"></script>
-    <script>
-        // 延迟执行确保DOM更新完成
-        setTimeout(() => {
-            console.log('Attempting to render math...');
-            renderMathInElement(document.body, {
-                delimiters: [
-                    {left: '$$', right: '$$', display: true},
-                    {left: '$', right: '$', display: false}
-                ],
-                throwOnError: false
-            });
-        }, 5000);
-    </script>
-    """
-    
-    """
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/contrib/auto-render.min.js"></script>
     <script>
@@ -190,23 +173,5 @@ def katex_scripts():
                 ]
             });
         });
-    </script>
-    """
-
-    """
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/contrib/auto-render.min.js"></script>
-    <script>
-        // 延迟执行确保DOM更新完成
-        setTimeout(() => {
-            console.log('Attempting to render math...');
-            renderMathInElement(document.querySelector('.stIFrame'), {
-                delimiters: [
-                    {left: '$$', right: '$$', display: true},
-                    {left: '$', right: '$', display: false}
-                ],
-                throwOnError: false
-            });
-        }, 500);
     </script>
     """

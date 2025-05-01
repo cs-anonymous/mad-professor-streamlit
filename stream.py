@@ -7,7 +7,7 @@ import os
 import json  # 添加在文件顶部
 
 # 在文件顶部添加导入
-from util import katex_scripts, render_markdown
+from util.util import katex_scripts, render_markdown
 
 os.environ["TORCH_DISABLE_MLOCK"] = "1"  # Disable PyTorch memory locking
 
@@ -18,7 +18,8 @@ if 'is_chinese' not in st.session_state:
     st.session_state.is_chinese = True  # 将此初始化提前到文件顶部
 
 # 初始化核心模块
-data_manager = DataManager()
+BASEDIR = os.path.dirname(os.path.abspath(__file__))
+data_manager = DataManager(BASEDIR)
 ai_manager = AIManager()
 data_manager.load_papers_index()
 
@@ -31,7 +32,7 @@ st.set_page_config(
 
 # 侧边栏 - 论文列表
 with st.sidebar:
-    st.header("论文列表")
+    st.header("📚 论文列表")
     
     # 论文选择
     selected_paper = st.selectbox(
@@ -49,28 +50,14 @@ with st.sidebar:
             f.write(uploaded_file.getbuffer())
         st.success(f"已上传: {uploaded_file.name}")
 
-# 应用自定义CSS：禁止滚动条
-st.markdown(
-    """
-    <style>
-    .stMain {
-        overflow: hidden;  /* 隐藏滚动条 */
-    }
-    .katex { font-size: 1.2em !important; }  /* 添加公式字体大小调整 */
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-st.components.v1.html(
-    katex_scripts(),  # 确保katex_scripts函数在HTML中正确调用    
-)
+
 
 # 主界面布局
 main_col, right_col = st.columns([7, 3])
 
 # 修改原有的渲染部分
 with main_col:
-    st.header("论文内容")
+    st.header("📄 论文内容")
     if selected_paper:
         paper = data_manager.load_paper_content(selected_paper)
         paper = {
@@ -81,12 +68,13 @@ with main_col:
         current_lang = 'zh' if st.session_state.is_chinese else 'en'
         content = paper[f"{current_lang}_content"]
         
-        html_content = render_markdown(content, current_lang)
-        st.components.v1.html(
-            html_content,
-            height=800,
-            scrolling=True
-        )
+        st.markdown(content, unsafe_allow_html=True)
+        # html_content = render_markdown(content, current_lang)
+        # st.components.v1.html(
+        #     html_content,
+        #     height=800,
+        #     scrolling=True
+        # )
         # 添加公式重新渲染逻辑
                 
 
@@ -100,11 +88,11 @@ with right_col:  # 对应原ChatWidget
             tts_enabled = st.checkbox("启用TTS语音", value=True)
             
         with setting_col2:
-            # 语言切换
-            if st.button("切换中/英文"):
-                st.session_state['is_chinese'] = not st.session_state.get('is_chinese', True)
-
-    st.header("AI对话")
+            # 保持现有代码不变
+            # 注意这里逻辑很奇怪，is_chinese切换成True时，会显示英文
+            st.session_state['is_chinese'] = st.toggle("显示英文", value=False)
+            
+    st.header("💬 AI对话")
     # 聊天消息显示
     for msg in st.session_state.get("messages", []):
         with st.chat_message(msg["role"]):
@@ -120,3 +108,13 @@ with right_col:  # 对应原ChatWidget
             st.rerun()
 
 
+# 应用自定义CSS：禁止滚动条
+st.markdown(
+    """
+    <style>
+    /* .stApp { overflow: hidden; }   禁止滚动条 */
+    .katex { font-size: 1.2em !important; }  /* 添加公式字体大小调整 */
+    </style>
+    """,
+    unsafe_allow_html=True
+)
