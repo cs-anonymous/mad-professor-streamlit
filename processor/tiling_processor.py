@@ -5,7 +5,7 @@ import numpy as np
 from pathlib import Path
 from typing import Dict, List, Any
 from sklearn.metrics.pairwise import cosine_similarity
-from config import EmbeddingModel
+from util.config import EmbeddingModel
 
 class TilingProcessor:
     """

@@ -1,7 +1,7 @@
 import json
 import logging
 from pathlib import Path
-from config import LLMClient
+from util.config import LLMClient
 
 SUMMARY_PROMPT_PATH = "prompt/summary_generation_prompt.txt"
 QUESTION_PROMPT_PATH = "prompt/question_generation_prompt.txt"

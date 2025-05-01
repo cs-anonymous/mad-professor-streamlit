@@ -4,9 +4,9 @@ from PyQt6.QtCore import Qt, QTimer, QSize
 from PyQt6.QtGui import QIcon, QFont
 
 # 导入自定义组件和工具类
-from paths import get_asset_path
+from util.paths import get_asset_path
 from ui.message_bubble import MessageBubble, LoadingBubble
-from AI_manager import AIManager
+from util.AI_manager import AIManager
 
 class ChatWidget(QWidget):
     """

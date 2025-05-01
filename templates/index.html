@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>暴躁的教授读论文</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
+    <style>
+        @font-face {
+                font-family: 'Source Han Serif CN';
+                src: url('https://n.ye-sun.com/app/font/SourceHanSerifCN-Regular-1.otf') format('opentype');
+                font-weight: normal;
+                font-style: normal;
+            }
+            
+            @font-face {
+                font-family: 'Source Han Serif CN';
+                src: url('https://n.ye-sun.com/app/font/SourceHanSerifCN-Bold-2.otf') format('opentype');
+                font-weight: bold;
+                font-style: normal;
+            }
+            
+            body {
+                font-family: 'Source Han Serif CN', 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 100%;
+                padding: 0 20px;
+                margin: 0 auto;
+                background-color: #fafafa;
+                border-radius: 10px;
+            }
+            
+            /* 添加科技感的样式 */
+            h1 {
+                color: #1a237e;
+                border-bottom: 2px solid #3949ab;
+                padding-bottom: 0.2em;
+                margin-top: 1.5em;
+                font-weight: bold;
+                position: relative;
+            }
+            
+            h1:after {
+                content: "";
+                position: absolute;
+                bottom: -2px;
+                left: 0;
+                width: 50px;
+                height: 2px;
+                background: linear-gradient(90deg, #3949ab, #1a237e);
+            }
+            
+            h2 {
+                color: #283593;
+                border-bottom: 1px solid #5c6bc0;
+                padding-bottom: 0.2em;
+            }
+            
+            h3 {
+                color: #303f9f;
+            }
+            
+            a {
+                color: #3949ab;
+                text-decoration: none;
+                border-bottom: 1px dotted #3949ab;
+                transition: all 0.3s ease;
+            }
+            
+            a:hover {
+                color: #5c6bc0;
+                border-bottom: 1px solid #5c6bc0;
+            }
+            
+            pre {
+                background-color: #e8eaf6;
+                border-left: 4px solid #3949ab;
+                padding: 1em;
+                overflow-x: auto;
+                border-radius: 8px;
+            }
+            
+            code {
+                font-family: Consolas, Monaco, 'Andale Mono', monospace;
+                background-color: #e8eaf6;
+                padding: 0.2em 0.4em;
+                border-radius: 4px;
+                color: #283593;
+            }
+            
+            blockquote {
+                border-left: 4px solid #5c6bc0;
+                padding: 0.5em 1em;
+                margin-left: 0;
+                background-color: #e8eaf6;
+                color: #3949ab;
+                border-radius: 6px;
+            }
+            
+            table {
+                border-collapse: collapse;
+                width: 100%;
+                margin: 1em 0;
+                border: 1px solid rgba(0,0,0,0.1);
+                border-radius: 6px;
+                overflow: hidden;
+            }
+            
+            table th {
+                background-color: #3949ab;
+                color: white;
+                padding: 0.5em;
+                text-align: left;
+            }
+            
+            table td {
+                padding: 0.5em;
+                border-bottom: 1px solid #c5cae9;
+            }
+            
+            table tr:nth-child(even) {
+                background-color: #e8eaf6;
+            }
+            
+            img {
+                max-width: 100%;
+                border: 1px solid rgba(0,0,0,0.1);
+                border-radius: 8px;
+                margin: 1em 0;
+            }
+            
+            /* KaTeX容器样式 */
+            .arithmatex {
+                overflow-x: auto;
+                max-width: 100%;
+            }
+            
+            .katex-display > .katex {
+                max-width: 100%;
+                overflow-x: auto;
+                overflow-y: hidden;
+                padding: 5px 0;
+            }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/contrib/auto-render.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- 侧边栏 -->
+        <div class="sidebar">
+            <h2>论文列表</h2>
+            <select id="paper-select">
+                {% for paper in papers %}
+                <option value="{{ paper.id }}">{{ paper.title }}</option>
+                {% endfor %}
+            </select>
+            
+            <form id="upload-form">
+                <input type="file" name="file" accept=".pdf">
+                <button type="submit">上传论文</button>
+            </form>
+        </div>
+
+        <!-- 论文内容区 -->
+        <div id="paper-content">
+            <!-- 动态加载的论文内容 -->
+        </div>
+
+        <!-- 聊天区 -->
+        <div class="chat-area">
+            <div id="chat-messages"></div>
+            <input type="text" id="user-input">
+            <button onclick="submitQuestion()">发送</button>
+        </div>
+    </div>
+
+    <!-- 加载前端JS -->
+    <script>
+        // 初始化函数
+        function initPaperContent(paperId) {
+            fetch(`/paper/${paperId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const content = document.getElementById('paper-content');
+                    content.innerHTML = data.zh_content; // 根据语言切换
+                    renderKatex(); // 调用KaTeX渲染
+                });
+        }
+
+        // 提交问题函数
+        function submitQuestion() {
+            const input = document.getElementById('user-input').value;
+            fetch('/chat', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prompt: input,
+                    paper_id: currentPaperId // 需要维护当前论文ID
+                }),
+                headers: {'Content-Type': 'application/json'}
+            })
+            .then(response => response.json())
+            .then(data => {
+                appendChatMessage(data.response);
+            });
+        }
+
+        // KaTeX渲染函数（JS实现）
+        function renderKatex() {
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false}
+                ],
+                throwOnError: false
+            });
+        }
+    </script>
+</body>
+</html>

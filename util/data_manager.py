@@ -2,8 +2,8 @@ import os
 import json
 import shutil
 from PyQt6.QtCore import QObject, pyqtSignal
-from pipeline import Pipeline
-from threads import ProcessingThread
+from util.pipeline import Pipeline
+from util.threads import ProcessingThread
 
 class DataManager(QObject):
     """
@@ -142,6 +142,11 @@ class DataManager(QObject):
         """
         lang_desc = "中文" if is_chinese else "英文"
         
+        print(f"尝试加载{lang_desc}文档: {file_path}")
+        if "\\" in file_path:
+            print(f"警告: 文件路径包含反斜杠，已替换: {file_path}")
+            file_path = file_path.replace("\\", "/")
+
         if os.path.exists(file_path):
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:

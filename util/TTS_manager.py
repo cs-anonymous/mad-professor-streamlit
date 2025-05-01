@@ -3,9 +3,10 @@ import queue
 import pyaudio
 import requests
 from PyQt6.QtCore import QThread, QObject, pyqtSignal, QMutex, QTimer
-from config import TTS_GROUP_ID, TTS_API_KEY
+from util.config import TTS_GROUP_ID, TTS_API_KEY
 
 url = "https://api.minimax.chat/v1/t2a_v2?GroupId=" + TTS_GROUP_ID
+VOICE_ID = 'female-yujie'
 headers = {"Content-Type": "application/json", "Authorization": "Bearer " + TTS_API_KEY}
 
 class TTSThread(QThread):
@@ -199,7 +200,7 @@ class TTSManager(QObject):
             "text": text,
             "stream": True,
             "voice_setting": {
-                "voice_id": "leidianjiangjun",
+                "voice_id": VOICE_ID,
                 "speed": 1,
                 "vol": 1,
                 "pitch": 0,
@@ -274,6 +275,7 @@ class TTSManager(QObject):
         try:
             response = requests.request("POST", url, stream=True, headers=tts_headers, data=tts_body)
             
+            print(f"请求状态码: {response.status_code}", response)
             # 即时处理所有音频块
             audio_chunks = []
             for chunk in response.raw:
@@ -288,6 +290,7 @@ class TTSManager(QObject):
             
             # 合并所有音频数据
             full_chunk = b"".join(audio_chunks)
+            print(f"接收到音频数据: {len(full_chunk)} bytes")
             
             # 添加带元数据的音频到播放队列
             self.player_thread.add_audio(full_chunk, (text, request_id))

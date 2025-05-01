@@ -2,8 +2,8 @@ import sys
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QFontDatabase, QFont, QPalette, QColor, QIcon, QPixmap, QPainter, QBrush, QLinearGradient
 from PyQt6.QtCore import Qt, QRect, QPoint
-from paths import get_font_path
-from AI_professor_UI import AIProfessorUI
+from util.paths import get_font_path
+from ui.AI_professor_UI import AIProfessorUI
 
 def generate_app_icon():
     """生成应用程序图标"""

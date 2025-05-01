@@ -7,8 +7,8 @@ from ui.markdown_view import MarkdownView
 from ui.chat_widget import ChatWidget
 from ui.sidebar_widget import SidebarWidget
 from ui.settings_bar import SettingsBar
-from data_manager import DataManager
-from AI_manager import AIManager
+from util.data_manager import DataManager
+from util.AI_manager import AIManager
 
 class AIProfessorUI(QMainWindow):
     """

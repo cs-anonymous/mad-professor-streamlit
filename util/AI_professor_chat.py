@@ -2,7 +2,7 @@ import logging
 import json
 import os
 from typing import List, Dict, Any, Generator, Tuple
-from config import LLMClient
+from util.config import LLMClient
 
 AI_CHARACTER_PROMPT_PATH = "prompt/ai_character_prompt_leidian.txt"
 AI_EXPLAIN_PROMPT_PATH = "prompt/ai_explain_prompt.txt"

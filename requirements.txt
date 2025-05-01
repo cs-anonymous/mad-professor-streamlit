@@ -12,3 +12,7 @@ pymdown-extensions
 zhconv
 RealtimeSTT
 pyaudio
+streamlit
+fastapi
+uvicorn
+python-multipart

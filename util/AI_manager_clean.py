@@ -1,9 +1,9 @@
 from PyQt6.QtCore import QObject, pyqtSignal, QUuid
-from AI_professor_chat import AIProfessorChat
-from threads import AIResponseThread
-from TTS_manager import TTSManager
-from voice_input import VoiceInput
-from rag_retriever import RagRetriever
+from util.AI_professor_chat import AIProfessorChat
+from util.threads import AIResponseThread
+from util.TTS_manager import TTSManager
+from util.voice_input import VoiceInput
+from util.rag_retriever import RagRetriever
 import os
 
 class AIManager(QObject):
@@ -13,7 +13,6 @@ class AIManager(QObject):
     包括:
     - AI对话逻辑
     - 语音识别
-    - TTS语音合成
     - RAG检索增强生成
     """
     # 信号定义
@@ -33,13 +32,6 @@ class AIManager(QObject):
         
         # 初始化AI聊天助手
         self._init_ai_assistant()
-        
-        # 初始化TTS管理器
-        self.tts_manager = TTSManager()
-        # 连接TTS播放开始信号
-        self.tts_manager.tts_playback_started.connect(self._on_tts_playback_started)
-        # 连接TTS音频实际播放开始信号
-        self.tts_manager.tts_audio_playback_started.connect(self._on_tts_audio_playback_started)
         
         # 缓存待显示的句子
         self.pending_sentences = {}
@@ -107,12 +99,6 @@ class AIManager(QObject):
         """取消当前正在生成的AI响应"""
         print("取消当前的AI响应...")
         
-        # 停止TTS播放并清除与当前请求相关的所有待处理TTS
-        if self.current_request_id:
-            self.tts_manager.cancel_request_id(self.current_request_id)
-        else:
-            self.tts_manager.stop_playing()  # 旧版兼容
-        
         # 处理已收集的部分响应
         # 只有当有实际内容时才添加到历史记录
         if self.accumulated_response and self.accumulated_response.strip():
@@ -145,7 +131,7 @@ class AIManager(QObject):
     
     def is_busy(self):
         """检查是否有AI响应正在生成或TTS正在播放"""
-        return self.is_generating_response or not self.tts_manager.is_queue_empty()
+        return self.is_generating_response
     
     def get_ai_response(self, query, paper_id=None, visible_content=None):
         """获取AI对用户查询的响应"""
@@ -207,9 +193,6 @@ class AIManager(QObject):
         # 发出信号通知UI
         self.ai_response_ready.emit(response)
         
-        # 不再重复调用TTS - 只有在非流式响应时才使用TTS
-        if not self.ai_response_thread.use_streaming:
-            self._speak_response(response)
     
     def _on_ai_sentence_ready(self, sentence, emotion, scroll_info=None):
         """处理单句AI响应就绪事件"""
@@ -231,30 +214,8 @@ class AIManager(QObject):
         if scroll_info and hasattr(self, 'markdown_view') and self.markdown_view:
             self._scroll_to_content(scroll_info)
         
-        # 使用TTS朗读单句 - 传递从AI生成的实际情绪
-        self._speak_response(sentence, sentence_id, emotion)
 
-    def _speak_response(self, text, sentence_id=None, emotion="neutral"):
-        """使用TTS朗读文本"""
-        # 如果TTS被禁用，直接返回
-        if not self.tts_enabled:
-            print(f"文字转语音已禁用,跳过请求: {text[:20]}")
-            return
-            
-        # 确保有当前请求ID
-        if not self.current_request_id:
-            return
         
-        # 为文本添加标识，用于在TTS开始播放时匹配回来
-        if sentence_id:
-            # 保存文本、请求ID和情绪的映射关系，请求TTS时传递请求ID和情绪
-            self.tts_manager.request_tts(text, self.current_request_id, emotion)
-            # 存储映射关系（句子ID与句子内容+请求ID+情绪）
-            self.pending_sentences[sentence_id] = (text, self.current_request_id, emotion)
-        else:
-            # 对于非流式响应，直接传递请求ID和情绪
-            self.tts_manager.request_tts(text, self.current_request_id, emotion)
-    
     def _on_tts_playback_started(self, text, request_id):
         """当TTS加入播放队列时调用（不再触发消息显示）"""
         # 如果请求ID不匹配当前活动请求，忽略这个播放事件
@@ -351,10 +312,6 @@ class AIManager(QObject):
     
     def cleanup(self):
         """清理所有资源"""
-        # 停止TTS
-        if hasattr(self, 'tts_manager'):
-            self.tts_manager.stop()
-        
         # 停止语音识别
         if self.voice_input:
             self.voice_input.cleanup()
@@ -438,22 +395,3 @@ class AIManager(QObject):
                 self.markdown_view._scroll_to_matching_content(content, 'title')
             else:
                 self.markdown_view._scroll_to_matching_content(content, 'text')
-
-    def set_tts_enabled(self, enabled: bool):
-        """设置TTS是否启用
-        
-        Args:
-            enabled: True表示启用TTS，False表示禁用TTS
-        """
-        self.tts_enabled = enabled
-        if not enabled:
-            # 如果禁用TTS，停止当前所有播放
-            self.tts_manager.stop_playing()
-
-    def is_tts_enabled(self) -> bool:
-        """获取TTS是否启用
-        
-        Returns:
-            bool: True表示TTS已启用，False表示已禁用
-        """
-        return self.tts_enabled

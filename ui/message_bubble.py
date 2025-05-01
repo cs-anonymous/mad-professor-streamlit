@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QFrame, QLabel, QHBoxLayout, QVBoxLayout
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QPixmap
-from paths import get_asset_path
+from util.paths import get_asset_path
 
 class MessageBubble(QWidget):
     """

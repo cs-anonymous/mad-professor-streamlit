@@ -7,7 +7,6 @@ class SettingsBar(QWidget):
     """设置栏组件 - 处理所有设置相关的功能"""
     
     # 定义信号
-    tts_toggled = pyqtSignal(bool)  # TTS开关信号
     language_toggled = pyqtSignal()  # 语言切换信号
     md_processor_toggled = pyqtSignal(bool)  # MarkdownProcessor切换信号
     
@@ -116,10 +115,6 @@ class SettingsBar(QWidget):
                 margin: 5px 0px;
             }
         """)
-        
-    def _on_tts_toggle(self, checked):
-        """处理TTS开关切换"""
-        self.tts_toggled.emit(checked)
     
     def _on_md_processor_toggle(self, checked):
         """处理MarkdownProcessor切换"""

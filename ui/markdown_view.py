@@ -1,11 +1,11 @@
 import os
 import markdown
 import json
-from data_manager import DataManager
+from util.data_manager import DataManager
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtCore import QUrl, pyqtSignal
-from paths import get_font_path, get_asset_path
+from util.paths import get_font_path, get_asset_path
 
 class CustomWebEnginePage(QWebEnginePage):
     """自定义WebEnginePage，可以重写特定的事件处理方法"""

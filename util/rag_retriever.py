@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from langchain_community.vectorstores.faiss import FAISS
-from config import EmbeddingModel
+from util.config import EmbeddingModel
 from PyQt6.QtCore import QObject, pyqtSignal, QThread
 
 class VectorLoadingThread(QThread):

@@ -5,7 +5,7 @@ from typing import Tuple, Dict, List, Any
 from langchain.text_splitter import MarkdownHeaderTextSplitter
 from langchain_community.vectorstores.faiss import FAISS
 from langchain_community.vectorstores.utils import DistanceStrategy
-from config import EmbeddingModel
+from util.config import EmbeddingModel
 
 class RagProcessor:
     """RAG 处理器：将 JSON 转换为 Markdown 和符合检索需求的JSON树结构，并生成向量库"""
