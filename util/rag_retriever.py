@@ -5,6 +5,16 @@ from langchain_community.vectorstores.faiss import FAISS
 from util.config import EmbeddingModel
 from PyQt6.QtCore import QObject, pyqtSignal, QThread
 
+def get_paths(id):
+    return {
+        "article_en": f"{id}/final_en.md",
+        "article_zh": f"{id}/final_zh.md",
+        "rag_md": f"{id}/final_rag.md",
+        "rag_tree": f"{id}/final_rag_tree.json",
+        "rag_vector_store": f"{id}/vectors",
+        "images": f"{id}/images",
+    }
+
 class VectorLoadingThread(QThread):
     """用于在后台加载向量库的线程"""
     loading_finished = pyqtSignal(dict)  # 加载完成信号，携带paper_id到路径的映射
@@ -32,7 +42,8 @@ class VectorLoadingThread(QThread):
             # 遍历所有论文，记录其向量库路径
             for paper in papers_index:
                 paper_id = paper.get('id')
-                vector_store_path = paper.get('paths', {}).get('rag_vector_store')
+                paths = get_paths(paper_id)
+                vector_store_path = paths.get('rag_vector_store')
                 
                 if paper_id and vector_store_path:
                     # 存储论文ID和向量库路径的映射
@@ -190,7 +201,8 @@ class RagRetriever(QObject):
             rag_tree_path = None
             for paper in papers_index:
                 if paper.get('id') == paper_id:
-                    rag_tree_path = paper.get('paths', {}).get('rag_tree')
+                    paths = get_paths(paper_id)
+                    rag_tree_path = paths.get('rag_tree')
                     break
             
             if not rag_tree_path:

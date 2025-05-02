@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, Form, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from util.data_manager_clean import DataManager
+from util.data_manager import DataManager
 from util.AI_manager_clean import AIManager
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi import HTTPException, UploadFile

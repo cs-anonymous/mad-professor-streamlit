@@ -26,3 +26,5 @@ if pgrep -f "streamlit run stream.py" >/dev/null; then
 else
     echo "❌ Streamlit 启动失败，请检查日志: stream.log"
 fi
+
+tail -f stream.log

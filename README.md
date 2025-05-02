@@ -1,10 +1,15 @@
 # 更改介绍
-本项目是在[林亦LYi大佬的项目](https://github.com/LYiHub/mad-professor-public)基础上优化得来的,是我自用的项目
+本项目是在[林亦LYi大佬的项目](https://github.com/LYiHub/mad-professor-public)基础上优化得来的
 
 ## 更改日志:
+2025/5/2
+- 修复了部分bug
+- 删除了原PYQT ui部分，删除了flask
+
 2025/5/1
 - 添加streamlit支持（运行stream.sh）
 - 搭建FastAPI框架（运行app.sh）
+- 整理了目录结构
 
 2025/4/26
 - 允许非标准论文文件输入
@@ -85,7 +90,7 @@
 
 5. 安装FAISS的gpu版本 (注：faiss-gpu版本只能通过conda安装，无法通过pip安装)
     ```
-    conda install -c conda-forge faiss-gpu
+    conda install -c conda-forge faiss=1.7.4
     ```
 6. 模型下载
     ```

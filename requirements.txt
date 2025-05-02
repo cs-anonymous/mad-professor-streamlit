@@ -16,3 +16,4 @@ streamlit
 fastapi
 uvicorn
 python-multipart
+rich

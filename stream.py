@@ -1,5 +1,5 @@
 import streamlit as st
-from util.data_manager_clean import DataManager
+from util.data_manager import DataManager
 # Add at the very top before other imports
 import os
 import json  # 添加在文件顶部
@@ -9,11 +9,20 @@ import shutil
 
 os.environ["TORCH_DISABLE_MLOCK"] = "1"  # Disable PyTorch memory locking
 
+# 应用基础配置
+st.set_page_config(
+    page_title="暴躁的教授读论文",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 # 在导入之后立即初始化session state
 if 'messages' not in st.session_state:
     st.session_state.messages = []
 if 'is_chinese' not in st.session_state:
     st.session_state.is_chinese = True  # 将此初始化提前到文件顶部
+if 'show_log' not in st.session_state:
+    st.session_state.show_log = False 
 # 在现有session_state初始化后添加
 if 'ai_is_generating' not in st.session_state:
     st.session_state.ai_is_generating = False
@@ -28,8 +37,18 @@ if 'ai_chat' not in st.session_state:
 
 # 初始化核心模块
 BASEDIR = os.path.dirname(os.path.abspath(__file__))
-data_manager = DataManager(BASEDIR)
-# 替换原有的ai_manager初始化
+
+# 整个应用生命周期内保持单例
+@st.cache_resource
+def init_data_manager():
+    data_manager = DataManager(BASEDIR)
+    data_manager.load_papers_index()
+    data_manager.scan_for_unprocessed_files()
+    return data_manager
+
+# 替换原有的初始化
+data_manager = init_data_manager()
+
 
 # 修改get_ai_response中的调用
 def get_ai_response(query, paper_id=None):
@@ -99,16 +118,11 @@ def change_seleted_paper():
             print("📚 加载RAG树成功")
             st.session_state.ai_chat.set_paper_context(paper_id, paper_data)
 
-data_manager.load_papers_index()
+
 # st.session_state.selected_paper = data_manager.papers_index[0]['id'] if data_manager.papers_index else None
 # change_seleted_paper()
 
-# 应用基础配置
-st.set_page_config(
-    page_title="暴躁的教授读论文",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+
 
 # 在现有函数后添加文件上传回调函数
 def handle_file_upload():
@@ -135,7 +149,7 @@ with st.sidebar:
             key='selected_paper',
             on_change=change_seleted_paper
         )
-        col1, col2 = st.columns([1,1])
+        col1, col2, col3 = st.columns([1,1,1])
         with col1:
             if st.button("📝 编辑论文", key="edit_paper_btn"):
                 st.session_state['selected_paper'] = selected_paper
@@ -148,7 +162,10 @@ with st.sidebar:
                     st.rerun()
                 else:
                     st.error("论文文件夹不存在")
-
+        with col3:
+            if st.button("🔄 刷新列表", key="refresh_db"):
+                data_manager.load_papers_index()
+                st.rerun()
         
         # 文件上传
     
@@ -162,31 +179,36 @@ with st.sidebar:
             on_change=handle_file_upload
         )
             
-        
         # 修改后的控制按钮行
-        col1, col2 = st.columns([1,1])
+        col1, col2, col3 = st.columns([1,1,1])
         with col1:
             # 切换式按钮
             if data_manager.is_paused:
                 if st.button("▶️ 继续处理", key="resume_btn"):
-                    data_manager.is_paused = False
-                    data_manager.process_next_in_queue()
-                    st.rerun()
+                    data_manager.resume_processing()
             else:
                 if st.button("⏸️ 暂停处理", key="pause_btn"):
                     data_manager.pause_processing()
-                    st.rerun()
         with col2:
-            if st.button("🔄 刷新列表", key="refresh_db"):
-                data_manager.load_papers_index()
-                st.rerun()
+            if st.button("🔄 扫描文件", key="scan"):
+                data_manager.scan_for_unprocessed_files()
+        with col2:
+            st.session_state['show_log'] = st.toggle("显示日志", value=False)
         
+        st.write(f"当前处理队列（共{len(data_manager.processing_queue)}项），是否暂停：{data_manager.is_paused}，正在处理：{data_manager.is_processing}")
         if data_manager.processing_queue:
-            st.caption("当前处理队列:")
             for item in data_manager.processing_queue:
-                status_icon = "🟡" if item['status'] == 'incomplete' else "🟢"
+                status_icon = {"pending": "⏳", "processing": "🔄", "completed": "✅", "failed": "❌", "incomplete": "🔧"}[item['status']]
                 st.write(f"{status_icon} {item['id']} - {item['status']}")
+            
+            current_item = data_manager.processing_queue[0] if data_manager.processing_queue else None
+            if current_item:
+                progress_data = data_manager.processing_progress
+                st.caption("处理进度")
+                st.write(f"{progress_data['stage_name']}\tprogress: {progress_data['progress']}% ({progress_data['index']}/{progress_data['total']})") 
+                st.progress(progress_data['progress']/100)
 
+    
 
     with st.expander("⚙️ 设置", expanded=True):
         setting_col1, setting_col2 = st.columns([1, 1])
@@ -229,7 +251,35 @@ main_col = st.columns([10])[0]
 
 # 修改原有的渲染部分
 with main_col:
-    if selected_paper:
+    if st.session_state.show_log:
+        log_container = st.empty()
+        last_position = 0  # 追踪文件读取位置
+        try:
+            # 初始化时获取最后20行
+            with open('stream.log', 'r') as f:
+                lines = f.readlines()[-20:]
+                log_content = "".join(lines)
+                last_position = f.tell()
+                log_container.text(log_content)  # 改用text组件
+            
+            # 持续监控更新
+            import time
+            while st.session_state.show_log:
+                with open('stream.log', 'r') as f:
+                    f.seek(last_position)
+                    new_lines = f.readlines()
+                    if new_lines:
+                        log_content += "".join(new_lines)
+                        # 保持最多保留100行
+                        MAX_LINES = 100
+                        if len(log_content.split('\n')) > MAX_LINES:
+                            log_content = '\n'.join(log_content.split('\n')[-MAX_LINES:])
+                        log_container.text(log_content)
+                        last_position = f.tell()
+                time.sleep(1)  # 降低检查频率
+        except FileNotFoundError:
+            st.error("日志文件stream.log不存在")
+    elif selected_paper:
         paper = data_manager.load_paper_content(selected_paper)
         paper = {
             'metadata': paper[0],
@@ -238,18 +288,37 @@ with main_col:
         }
         current_lang = 'zh' if st.session_state.is_chinese else 'en'
         content = paper[f"{current_lang}_content"]
-        st.markdown(content, unsafe_allow_html=True)
-                
+
+        # Generate TOC and add anchors to content
+        import re
+        toc = []
+        content_with_anchors = content  # Initialize content with anchors
+
+        # Extract headings and generate TOC
+        def replace_heading(match):
+            level = len(match.group(1))  # Number of '#' determines the level
+            title = match.group(2)
+            anchor = title.replace(" ", "-").lower()  # Create a unique anchor
+            toc.append((level, title, anchor))  # Add to TOC
+            return f'<h{level} id="{anchor}">{title}</h{level}>'  # Add anchor to heading
+
+        # Add anchors to content
+        content_with_anchors = re.sub(r'(?m)^(#+)\s+(.*)', replace_heading, content)
+
+        # Generate hierarchical TOC with indentation
+        toc_markdown = []
+        for level, title, anchor in toc:
+            indent = " " * (level - 1) * 4  # Indent based on heading level
+            toc_markdown.append(f"{indent}- [{title}](#{anchor})")
+        toc_markdown = "\n".join(toc_markdown)
+
+        with st.expander("📑 目录", expanded=True):
+            st.markdown(toc_markdown, unsafe_allow_html=True)
+
+        # Render the combined markdown
+        st.markdown(content_with_anchors, unsafe_allow_html=True)
 
 
 with open("static/css/style.css", "r", encoding="utf-8") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# st.markdown(
-#     """
-#     <style>
-#     /* .stApp { overflow: hidden; }   禁止滚动条 */
-#     .katex { font-size: 1.2em !important; }  /* 添加公式字体大小调整 */
-#     </style>
-#     """,
-#     unsafe_allow_html=True

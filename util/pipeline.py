@@ -12,16 +12,18 @@ from processor.extra_info_processor import ExtraInfoProcessor
 from processor.rag_processor import RagProcessor
 from processor.md_processor_slides import MarkdownProcessorSlides
 from PyQt6.QtCore import QObject, pyqtSignal
+from rich import print
 
-# 配置日志
-logger = logging.getLogger(__name__)
+
+def error(msg):
+    print(f"[bold red]Error:[/bold red] {msg}")
 
 class Pipeline(QObject):
     """学术论文处理管线"""
     # 添加进度更新信号
-    progress_updated = pyqtSignal(dict)  # 发送stage_info字典
+    # progress_updated = pyqtSignal(dict)  # 发送stage_info字典
     
-    def __init__(self, stages: Optional[List[str]] = None):
+    def __init__(self, stages: Optional[List[str]] = None, data_manager=None):
         """
         初始化处理管线
         
@@ -31,18 +33,17 @@ class Pipeline(QObject):
                           'tiling', 'translate', 'md_restore', 'extra_info', 'rag']
         """
         super().__init__()  # 调用QObject初始化
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
         # 定义阶段标识符和对应的处理函数
         self.stage_identifiers = {
-            'pdf2md': '',
-            'md2json': '_structured',
-            'json_process': '_processed',
-            'tiling': '_tiled',
-            'translate': '_translated',
-            'md_restore': '_restored',
-            'extra_info': '_extra_info',
-            'rag': '_rag'
+            'pdf2md': 'main',
+            'md2json': 'structured',
+            'json_process': 'processed',
+            'tiling': 'tiled',
+            'translate': 'translated',
+            'md_restore': 'restored',
+            'extra_info': 'extra_info',
+            'rag': 'rag'
         }
         
         self.available_stages = {
@@ -56,7 +57,7 @@ class Pipeline(QObject):
             'rag': self._stage_rag
         }
         self.stages = stages or list(self.available_stages.keys())
-        self.logger.debug("初始化处理阶段: %s", self.stages)
+        print("初始化处理阶段: ", self.stages)
         
         # 初始化处理器
         self.pdf_processor = PDFProcessor()
@@ -69,6 +70,7 @@ class Pipeline(QObject):
         self.restore_processor = RestoreProcessor()
         self.extra_info_processor = ExtraInfoProcessor()
         self.rag_processor = RagProcessor()
+        self.data_manager = data_manager
         
         # 论文处理状态
         self.paper_info = {
@@ -96,14 +98,14 @@ class Pipeline(QObject):
         print("signal received 切换Markdown处理器")
         try:
             if use_slides_processor:
-                self.logger.info("切换到幻灯片处理器")
+                print("切换到幻灯片处理器")
                 self.md_processor = self.md_processor_slides
             else:
-                self.logger.info("切换到标准处理器")
+                print("切换到标准处理器")
                 self.md_processor = self.md_processor_original
             return self.is_using_slides_processor()
         except Exception as e:
-            self.logger.error(f"切换Markdown处理器失败: {str(e)}")
+            error(f"切换Markdown处理器失败: {str(e)}")
             return self.is_using_slides_processor()
     
     def is_using_slides_processor(self) -> bool:
@@ -129,22 +131,22 @@ class Pipeline(QObject):
         """
         identifier = self.stage_identifiers.get(stage, '')
         if stage == 'pdf2md':
-            return paper_dir / f"{paper_name}{identifier}.md"
+            return paper_dir / f"{identifier}.md"
         elif stage == 'md_restore':
             # 对于restore阶段，返回一个包含英文和中文输出路径的字典
             return {
-                'en': paper_dir / f"final_{paper_name}_en.md",
-                'zh': paper_dir / f"final_{paper_name}_zh.md"
+                'en': paper_dir / f"final_en.md",
+                'zh': paper_dir / f"final_zh.md"
             }
         elif stage == 'rag':
             # 对于RAG阶段，返回一个包含md、tree_json和vector_store输出路径的字典
             return {
-                'md': paper_dir / f"final_{paper_name}_rag.md",
-                'tree_json': paper_dir / f"final_{paper_name}_rag_tree.json",
+                'md': paper_dir / f"final_rag.md",
+                'tree_json': paper_dir / f"final_rag_tree.json",
                 'vector_store': paper_dir / "vectors"
             }
         else:
-            return paper_dir / f"{paper_name}{identifier}.json"
+            return paper_dir / f"{identifier}.json"
         
     def get_current_stage(self) -> Dict[str, any]:
         """
@@ -195,7 +197,11 @@ class Pipeline(QObject):
         }
         
         # 发送进度更新信号
-        self.progress_updated.emit(result)
+        # self.progress_updated.emit(result)
+        print(f"[Pipeline] 处理进度更新: {result}")
+        self.data_manager.processing_progress = result
+        # 触发更新信号，为什么更新之后前端没更新？
+        # self.data_manager.scan_for_unprocessed_files()
         
         return result
     
@@ -235,13 +241,14 @@ class Pipeline(QObject):
             # 运行选定的处理阶段
             for stage in self.stages:
                 if stage not in self.available_stages:
-                    self.logger.warning(f"未知的处理阶段: {stage}")
+                    error(f"未知的处理阶段: {stage}")
                     continue
 
                 # 设置当前阶段
                 self._current_stage = stage
-                self.progress_updated.emit(self.get_current_stage())
-                self.logger.info(f"开始运行阶段: {stage}")
+                # self.progress_updated.emit(self.get_current_stage())
+                self.get_current_stage()
+                print(f"开始运行阶段: {stage}")
    
                 # 获取该阶段的预期输出路径
                 expected_output = self._get_stage_output_path(stage, paper_output_dir, self.paper_info['paper_id'])
@@ -256,24 +263,26 @@ class Pipeline(QObject):
                             break
                             
                     if files_exist:
-                        self.logger.info(f"阶段 {stage} 的输出文件已存在，跳过处理: {expected_output}")
+                        print(f"阶段 {stage} 的输出文件已存在，跳过处理: {expected_output}")
                         output_paths[stage] = expected_output
                         continue
                 else:
                     if isinstance(expected_output, Path) and expected_output.exists():
-                        self.logger.info(f"阶段 {stage} 的输出文件已存在，跳过处理: {expected_output}")
+                        print(f"阶段 {stage} 的输出文件已存在，跳过处理: {expected_output}")
                         output_paths[stage] = expected_output
                         continue
                 
                 # 执行处理阶段
-                self.logger.info(f"开始运行阶段: {stage}")
-                logger.info(f"\n参数: pdf {pdf_path}\n paper_output_dir {paper_output_dir}\n paper_info {self.paper_info['paper_id']}\n output_paths {output_paths}")
+                print(f"开始运行阶段: {stage}")
+                print(f"\n参数: pdf {pdf_path}\n paper_output_dir {paper_output_dir}\n paper_info {self.paper_info['paper_id']}\n output_paths {output_paths}")
                 stage_output = self.available_stages[stage](
                     pdf_path, paper_output_dir, self.paper_info['paper_id'], output_paths
                 )
-                logger.info(f"阶段{stage},输出: {stage_output}")
+                print(f"阶段{stage},输出: {stage_output}")
                 output_paths[stage] = stage_output
-                self.logger.info(f"阶段 {stage} 完成")
+                print(f"阶段 {stage} 完成")
+
+                self.get_current_stage()
 
             # 处理完成后
             self._current_stage = None
@@ -281,7 +290,7 @@ class Pipeline(QObject):
             # 如果RAG或MD_RESTORE阶段已完成，更新全局索引
             final_paths = {}
             
-            logger.info(f"output_paths: {output_paths}")
+            print(f"output_paths: {output_paths}")
             
             # 收集最终文件路径
             if 'md_restore' in output_paths:
@@ -308,11 +317,14 @@ class Pipeline(QObject):
             if final_paths:
                 self._update_global_index(base_output_dir, final_paths)
                 output_paths['final'] = final_paths
+
+            self.data_manager.on_processing_finished(self.paper_info['paper_id'])
+            print(f"处理完成: {self.paper_info['paper_id']}")
             
             return output_paths
             
         except Exception as e:
-            self.logger.error(f"处理过程出错: {str(e)}", exc_info=True)
+            error(f"处理过程出错: {str(e)}", exc_info=True)
             raise
 
     def _update_global_index(self, base_output_dir: Path, final_paths: Dict) -> None:
@@ -332,21 +344,8 @@ class Pipeline(QObject):
                 with open(index_path, 'r', encoding='utf-8') as f:
                     papers_index = json.load(f)
             except json.JSONDecodeError:
-                self.logger.warning(f"索引文件损坏，将创建新索引: {index_path}")
+                error(f"索引文件损坏，将创建新索引: {index_path}")
                 papers_index = []
-        
-        # 构建论文条目
-        # 将路径字符串化，保存相对路径以避免跨机器使用时的问题
-        path_dict = {}
-        for key, path in final_paths.items():
-            if path:
-                # 将路径转换为相对于基础输出目录的相对路径
-                try:
-                    rel_path = path.relative_to(base_output_dir)
-                    path_dict[key] = str(rel_path)
-                except ValueError:
-                    # 如果无法获取相对路径，则使用绝对路径
-                    path_dict[key] = str(path)
         
         # 从 rag_tree.json 提取 title 和 translated_title
         title = ""
@@ -357,16 +356,16 @@ class Pipeline(QObject):
                     tree_data = json.load(f)
                     title = tree_data.get('title', '')
                     translated_title = tree_data.get('translated_title', '')
-                    self.logger.info(f"从RAG树中提取标题: {title}, 翻译标题: {translated_title}")
+                    print(f"从RAG树中提取标题: {title}, 翻译标题: {translated_title}")
             except Exception as e:
-                self.logger.error(f"从RAG树中提取标题时出错: {str(e)}")
+                error(f"从RAG树中提取标题时出错: {str(e)}")
         
         paper_entry = {
             'id': self.paper_info['paper_id'],
             'title': title,
-            'translated_title': translated_title,
-            'paths': path_dict
+            'translated_title': translated_title
         }
+        print("[Pipeline] 开始更新全局索引...", index_path, paper_entry)
         
         # 查找现有条目
         existing_index = -1
@@ -385,27 +384,28 @@ class Pipeline(QObject):
         with open(index_path, 'w', encoding='utf-8') as f:
             json.dump(papers_index, f, ensure_ascii=False, indent=2)
         
-        self.logger.info(f"全局索引更新完成: {index_path}")
+        print(f"全局索引更新完成: {index_path}")
+        
 
     def _stage_pdf_to_md(self, pdf_path: Path, paper_dir: Path, 
                         paper_name: str, output_paths: dict) -> Path:
         """PDF转Markdown阶段"""
-        self.logger.info(f"开始将PDF转换为Markdown: {pdf_path}")
+        print(f"开始将PDF转换为Markdown: {pdf_path}")
         try:
             markdown_path = self.pdf_processor.process(
                 str(pdf_path),
                 str(paper_dir)
             )
-            self.logger.info(f"PDF成功转换为Markdown: {markdown_path}")
+            print(f"PDF成功转换为Markdown: {markdown_path}")
             return markdown_path
         except Exception as e:
-            self.logger.error(f"PDF转Markdown失败: {str(e)}")
+            error(f"PDF转Markdown失败: {str(e)}")
             raise
 
     def _stage_md_to_json(self, pdf_path: Path, paper_dir: Path, 
                          paper_name: str, output_paths: dict) -> Path:
         """Markdown转结构化JSON阶段"""
-        self.logger.info("开始将Markdown转换为JSON")
+        print("开始将Markdown转换为JSON")
         try:
             markdown_path = output_paths.get('pdf2md')
             if not markdown_path:
@@ -416,16 +416,16 @@ class Pipeline(QObject):
                 str(markdown_path),
                 str(output_path)
             )
-            self.logger.info(f"Markdown成功转换为JSON: {json_path}")
+            print(f"Markdown成功转换为JSON: {json_path}")
             return json_path
         except Exception as e:
-            self.logger.error(f"Markdown转JSON失败: {str(e)}")
+            error(f"Markdown转JSON失败: {str(e)}")
             raise
 
     def _stage_json_process(self, pdf_path: Path, paper_dir: Path, 
                           paper_name: str, output_paths: dict) -> Path:
         """JSON处理阶段"""
-        self.logger.info("开始处理JSON文件")
+        print("开始处理JSON文件")
         try:
             input_json_path = output_paths.get('md2json')
             if not input_json_path:
@@ -436,16 +436,16 @@ class Pipeline(QObject):
                 str(input_json_path),
                 str(output_path)
             )
-            self.logger.info(f"JSON文件处理完成: {processed_json_path}")
+            print(f"JSON文件处理完成: {processed_json_path}")
             return processed_json_path
         except Exception as e:
-            self.logger.error(f"JSON处理失败: {str(e)}")
+            error(f"JSON处理失败: {str(e)}")
             raise
             
     def _stage_tiling(self, pdf_path: Path, paper_dir: Path, 
                     paper_name: str, output_paths: dict) -> Path:
         """平铺阶段：将处理后的JSON文件进行平铺处理"""
-        self.logger.info("开始平铺阶段")
+        print("开始平铺阶段")
         try:
             # 获取前一阶段处理好的JSON文件路径
             input_json_path = output_paths.get('json_process')
@@ -462,16 +462,16 @@ class Pipeline(QObject):
                 str(output_path)
             )
             
-            self.logger.info(f"JSON文件平铺完成: {tiled_json_path}")
+            print(f"JSON文件平铺完成: {tiled_json_path}")
             return tiled_json_path
         except Exception as e:
-            self.logger.error(f"平铺阶段失败: {str(e)}", exc_info=True)
+            error(f"平铺阶段失败: {str(e)}", exc_info=True)
             raise
 
     def _stage_translate(self, pdf_path: Path, paper_dir: Path, 
                         paper_name: str, output_paths: dict) -> Path:
         """翻译阶段，使用TranslateProcessor进行JSON文件的翻译"""
-        self.logger.info("开始翻译阶段")
+        print("开始翻译阶段")
         try:
             # 获取前一阶段处理好的JSON文件路径
             input_json_path = output_paths.get('tiling')  
@@ -488,16 +488,16 @@ class Pipeline(QObject):
                 str(output_path)
             )
             
-            self.logger.info(f"JSON文件翻译完成: {translated_json_path}")
+            print(f"JSON文件翻译完成: {translated_json_path}")
             return translated_json_path
         except Exception as e:
-            self.logger.error(f"翻译阶段失败: {str(e)}", exc_info=True)
+            error(f"翻译阶段失败: {str(e)}", exc_info=True)
             raise
 
     def _stage_md_restore(self, pdf_path: Path, paper_dir: Path, 
                   paper_name: str, output_paths: dict) -> dict:
         """还原阶段：将JSON文件还原为中英文Markdown文档"""
-        self.logger.info("开始还原阶段")
+        print("开始还原阶段")
         try:
             # 获取前一阶段处理好的翻译JSON文件路径
             input_json_path = output_paths.get('translate')
@@ -517,7 +517,7 @@ class Pipeline(QObject):
                 str(output_path_zh)
             )
             
-            self.logger.info(f"还原完成: 英文文档 {en_path}, 中文文档 {zh_path}")
+            print(f"还原完成: 英文文档 {en_path}, 中文文档 {zh_path}")
             
             # 返回一个字典，包含两个输出路径
             return {
@@ -525,13 +525,13 @@ class Pipeline(QObject):
                 'zh': Path(zh_path)
             }
         except Exception as e:
-            self.logger.error(f"还原阶段失败: {str(e)}", exc_info=True)
+            error(f"还原阶段失败: {str(e)}", exc_info=True)
             raise
 
     def _stage_extra_info(self, pdf_path: Path, paper_dir: Path, 
                 paper_name: str, output_paths: dict) -> Path:
         """额外信息提取处理阶段，主要生成各章节的总结"""
-        self.logger.info("开始额外信息提取阶段")
+        print("开始额外信息提取阶段")
         try:
             # 获取前一阶段处理好的JSON文件路径，这里使用翻译阶段的输出作为输入
             input_json_path = output_paths.get('translate')
@@ -548,10 +548,10 @@ class Pipeline(QObject):
                 str(output_path)
             )
             
-            self.logger.info(f"额外信息提取完成: {processed_json_path}")
+            print(f"额外信息提取完成: {processed_json_path}")
             return processed_json_path
         except Exception as e:
-            self.logger.error(f"额外信息提取阶段失败: {str(e)}", exc_info=True)
+            error(f"额外信息提取阶段失败: {str(e)}", exc_info=True)
             raise
 
     def _stage_rag(self, pdf_path: Path, paper_dir: Path, 
@@ -563,7 +563,7 @@ class Pipeline(QObject):
         2. 树结构JSON文件：包含论文的层次结构，与MD文件中的节点key对应
         3. 向量库：基于Markdown文件生成的向量库，用于检索增强生成
         """
-        self.logger.info("开始RAG处理阶段")
+        print("开始RAG处理阶段")
         try:
             # 获取前一阶段处理好的JSON文件路径
             # 使用extra_info阶段的输出作为输入，因为它包含了额外的摘要信息
@@ -592,7 +592,7 @@ class Pipeline(QObject):
                 str(vector_store_path)
             )
             
-            self.logger.info(
+            print(
                 f"RAG处理完成: Markdown文件 {md_path}, 树结构JSON {tree_json_path}, 向量库 {vector_store_path}"
             )
             
@@ -603,5 +603,5 @@ class Pipeline(QObject):
                 'vector_store': Path(vector_store_path)
             }
         except Exception as e:
-            self.logger.error(f"RAG处理阶段失败: {str(e)}", exc_info=True)            
+            error(f"RAG处理阶段失败: {str(e)}", exc_info=True)            
             raise

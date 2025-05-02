@@ -7,6 +7,16 @@ from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtCore import QUrl, pyqtSignal
 from util.paths import get_font_path, get_asset_path
 
+def get_paths(id):
+    return {
+        "article_en": f"{id}/final_en.md",
+        "article_zh": f"{id}/final_zh.md",
+        "rag_md": f"{id}/final_rag.md",
+        "rag_tree": f"{id}/final_rag_tree.json",
+        "rag_vector_store": f"{id}/vectors",
+        "images": f"{id}/images",
+    }
+
 class CustomWebEnginePage(QWebEnginePage):
     """自定义WebEnginePage，可以重写特定的事件处理方法"""
     def __init__(self, parent=None):
@@ -570,7 +580,8 @@ class MarkdownView(QWebEngineView):
         base_url = None
         if hasattr(self, 'data_manager') and self.data_manager and self.data_manager.current_paper:
             paper = self.data_manager.current_paper
-            paper_path = paper.get('paths', {}).get(f'article_{self.current_lang}', '')
+            paths = get_paths(paper['id'])
+            paper_path = paths.get(f'article_{self.current_lang}', '')
             if paper_path:
                 paper_dir = os.path.dirname(os.path.join(
                     self.data_manager.output_dir,
