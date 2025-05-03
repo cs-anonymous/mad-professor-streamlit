@@ -5,6 +5,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from util.pipeline import Pipeline
 from util.threads import ProcessingThread
 from rich import print
+from util.AI_manager import AIManager
 
 def error(msg):
     print(f"[bold red]Error:[/bold red] {msg}")
@@ -53,6 +54,7 @@ class DataManager(QObject):
         
         # 初始化处理队列和状态
         self._init_processing_queue()
+        self.ai_manager = AIManager()  # 初始化AI管理器
 
         self.processing_progress = {
             'stage': None,
@@ -443,6 +445,7 @@ class DataManager(QObject):
         """扫描数据目录，查找未处理或处理不完整的PDF文件"""
         # 清空现有队列（不用清空！！！）
         # self.processing_queue = []
+        existing_ids = {item['id'] for item in self.papers_index}
         processing_queue_ids = {item['id'] for item in self.processing_queue}
         
         # 获取已处理论文的ID列表
@@ -454,7 +457,12 @@ class DataManager(QObject):
         # 对于每个PDF文件，检查是否已经处理
         for pdf_file in pdf_files:
             paper_id = os.path.splitext(pdf_file)[0]  # 不包含扩展名的文件名作为ID
+            if paper_id in existing_ids:
+                print(f"[DataManager] 跳过已处理文件: {pdf_file}")
+                continue
+
             if paper_id in processing_queue_ids:
+                print(f"[DataManager] 跳过正在处理的文件: {pdf_file}")
                 continue
 
             # 检查是否已经在索引中并且处理完整
@@ -572,41 +580,13 @@ class DataManager(QObject):
         
         # 创建并启动处理线程
         self.current_thread = ProcessingThread(
-            self.pipeline, next_item['path'], self.output_dir
+            self.pipeline, next_item['path'], self.output_dir, self
         )
-        self.current_thread.processing_finished.connect(self.on_processing_finished)
-        self.current_thread.processing_error.connect(self.on_processing_error)
         self.current_thread.start()
         
         return True
     
     # ========== 处理线程回调 ==========
-    
-    def on_thread_progress(self, file_name, stage, progress, remaining):
-        """处理线程进度更新回调"""
-        self.processing_progress = {
-            "file_name": file_name,
-            "stage_name": stage,
-            "progress": progress,
-            "remaining": remaining,
-        }
-    
-    def on_pipeline_progress(self, stage_info):
-        """管线进度更新回调"""
-        # 构建当前处理的文件名
-        if self.is_processing and self.processing_queue:
-            file_name = os.path.basename(self.processing_queue[0]['path'])
-            stage = stage_info.get('stage_name', '未知阶段')
-            progress = stage_info.get('progress', 0)
-            remaining = len(self.processing_queue) - 1
-            
-            # 发送进度更新信号
-            self.processing_progress = {
-                "file_name": file_name,
-                "stage_name": stage,
-                "progress": progress,
-                "remaining": remaining,
-            }
         
     def on_processing_finished(self, paper_id):
         """处理完成回调"""

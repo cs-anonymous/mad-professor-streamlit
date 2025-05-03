@@ -128,6 +128,11 @@ def change_seleted_paper():
 def handle_file_upload():
     if "uploaded_file" in st.session_state:
         uploaded_file = st.session_state.uploaded_file
+
+        if uploaded_file.name.strip('.pdf') in [p['id'] for p in data_manager.papers_index]:
+            st.error("该论文已存在，请选择其他文件")
+            return
+
         # 确保路径处理正确
         save_path = os.path.abspath(os.path.join("data", uploaded_file.name))
         with open(save_path, "wb") as f:
@@ -190,7 +195,7 @@ with st.sidebar:
                 if st.button("⏸️ 暂停处理", key="pause_btn"):
                     data_manager.pause_processing()
         with col2:
-            if st.button("🔄 扫描文件", key="scan"):
+            if st.button("🔄 更新进度", key="scan"):
                 data_manager.scan_for_unprocessed_files()
         with col2:
             st.session_state['show_log'] = st.toggle("显示日志", value=False)
@@ -260,7 +265,7 @@ with main_col:
                 lines = f.readlines()[-20:]
                 log_content = "".join(lines)
                 last_position = f.tell()
-                log_container.text(log_content)  # 改用text组件
+                log_container.markdown(log_content)  # 改用text组件
             
             # 持续监控更新
             import time
@@ -274,7 +279,7 @@ with main_col:
                         MAX_LINES = 100
                         if len(log_content.split('\n')) > MAX_LINES:
                             log_content = '\n'.join(log_content.split('\n')[-MAX_LINES:])
-                        log_container.text(log_content)
+                        log_container.markdown(log_content)
                         last_position = f.tell()
                 time.sleep(1)  # 降低检查频率
         except FileNotFoundError:
@@ -317,6 +322,28 @@ with main_col:
 
         # Render the combined markdown
         st.markdown(content_with_anchors, unsafe_allow_html=True)
+    
+    else:
+        st.markdown("""
+# 哼！又来一个不读论文的学生是吧？
+
+很好，至少你知道打开这个软件。我是你的论文指导教授，**不要期望我对你手下留情**。
+
+## 听好了，这是你能做的事：
+
+- **选论文**：左边那一堆，挑一篇你能看懂的（如果有的话）
+- **换语言**：中英文看不懂？按上面那个按钮切换，别指望换了语言就能理解内容
+- **问问题**：有不懂的就右边提问，我会回答，虽然你的问题可能很蠢
+- **看摘要**：懒得读全文？我给你总结重点，省得你到处抓瞎
+
+## 开始用吧，别磨蹭！
+
+从左边随便选一篇，然后开始读。有不明白的就问我，**别憋着装懂**！
+
+记住：_真正的学术是刀尖起舞，而不是像你平时那样浅尝辄止！_
+
+...不过别担心，我会一直在这陪你读完的。
+""")
 
 
 with open("static/css/style.css", "r", encoding="utf-8") as f:

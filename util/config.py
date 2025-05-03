@@ -3,21 +3,17 @@ import sys
 from typing import Optional, List, Dict, Any, Generator
 from openai import OpenAI
 from langchain_huggingface import HuggingFaceEmbeddings
+import dotenv
+import os
 
-# API配置
-# API_BASE_URL = "https://api.deepseek.com"
-# API_KEY = "sk-01b31f976df549509b0d37f3fd8bf771"
-# # global_model = "deepseek-v3-250324"
-# GLOBAL_MODEL = "deepseek-chat"
+# 加载环境变量
+dotenv.load_dotenv()
+API_KEY = os.getenv("API_KEY")
+API_BASE_URL = os.getenv("API_BASE_URL")
+GLOBAL_MODEL = os.getenv("GLOBAL_MODEL")
+# TTS_GROUP_ID = os.getenv("TTS_GROUP_ID")
+# TTS_API_KEY = os.getenv("TTS_API_KEY")
 
-
-API_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-API_KEY = "sk-aac2b427fea1450998814bf1d26bc56f"
-GLOBAL_MODEL = "deepseek-v3"
-
-
-TTS_GROUP_ID = "1913404067007177224"
-TTS_API_KEY = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJHcm91cE5hbWUiOiLlrZnng6giLCJVc2VyTmFtZSI6IuWtmeeDqCIsIkFjY291bnQiOiIiLCJTdWJqZWN0SUQiOiIxOTEzNDA0MDY3MDExMzcxNTI4IiwiUGhvbmUiOiIxMzg3MjUzMDI1NSIsIkdyb3VwSUQiOiIxOTEzNDA0MDY3MDA3MTc3MjI0IiwiUGFnZU5hbWUiOiIiLCJNYWlsIjoiIiwiQ3JlYXRlVGltZSI6IjIwMjUtMDQtMjAgMTk6NDU6MTkiLCJUb2tlblR5cGUiOjEsImlzcyI6Im1pbmltYXgifQ.Brv_Eb3npE4tIPvi5F8TpyITd3BAhR6LnDnyO6AeAwN21GLxkJuK-atg5B7mfYtQ0HJ2cRevkhtQCa7Ih_ovTecn7OA81UCpWKD9rl-xpOe_ikqVW9tzf3ROo-lg8GaIBMJe6O2TjkfH49oxKsheP4z4Ue63ziJGfqpoEf4iC1vdTYg4EOvu3RXV7Cv_RKCuRPQP5P4Y2JRkOKHYknkeVStSpi1o_AJ0_XSY1hzpC4GDUUzYu4WVM5SPzbnIYm_7f4tECbW-MO5YsIpURyonb0r7oY6byBT_hmTlofRsdwm-xTY7ImT5Mp_wuRfiBU4UHDaTvnUjh9ubJMeP4-n7Hw"
 
 # 嵌入模型配置
 EMBEDDING_MODEL_NAME = "BAAI/bge-m3"

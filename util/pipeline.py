@@ -216,25 +216,25 @@ class Pipeline(QObject):
         Returns:
             Dict[str, Path]: 各阶段输出文件的路径字典
         """
-        try:
-            print("[Pipeline] 开始处理论文...", pdf_path, output_dir)
-            # 规范化路径
-            pdf_path = Path(pdf_path)
-            if not pdf_path.exists():
-                raise FileNotFoundError(f"PDF文件不存在: {pdf_path}")
+        print("[Pipeline] 开始处理论文...", pdf_path, output_dir)
+        # 规范化路径
+        pdf_path = Path(pdf_path)
+        if not pdf_path.exists():
+            raise FileNotFoundError(f"PDF文件不存在: {pdf_path}")
 
-            # 设置基础输出目录
-            base_output_dir = Path(output_dir) if output_dir else pdf_path.parent
-            base_output_dir.mkdir(exist_ok=True, parents=True)
-            
-            # 初始化论文信息
-            self.paper_info['paper_id'] = pdf_path.stem
-            
-            # 创建输出目录
-            paper_output_dir = base_output_dir / self.paper_info['paper_id']
-            paper_output_dir.mkdir(exist_ok=True)
-            self.paper_info['output_dir'] = paper_output_dir
-            
+        # 设置基础输出目录
+        base_output_dir = Path(output_dir) if output_dir else pdf_path.parent
+        base_output_dir.mkdir(exist_ok=True, parents=True)
+        
+        # 初始化论文信息
+        self.paper_info['paper_id'] = pdf_path.stem
+        
+        # 创建输出目录
+        paper_output_dir = base_output_dir / self.paper_info['paper_id']
+        paper_output_dir.mkdir(exist_ok=True)
+        self.paper_info['output_dir'] = paper_output_dir
+        
+        try:
             # 存储各阶段的输出路径
             output_paths = {}
             
@@ -317,8 +317,6 @@ class Pipeline(QObject):
             if final_paths:
                 self._update_global_index(base_output_dir, final_paths)
                 output_paths['final'] = final_paths
-
-            self.data_manager.on_processing_finished(self.paper_info['paper_id'])
             print(f"处理完成: {self.paper_info['paper_id']}")
             
             return output_paths
@@ -326,6 +324,10 @@ class Pipeline(QObject):
         except Exception as e:
             error(f"处理过程出错: {str(e)}", exc_info=True)
             raise
+
+        finally:
+            self.data_manager.on_processing_finished(self.paper_info['paper_id'])
+
 
     def _update_global_index(self, base_output_dir: Path, final_paths: Dict) -> None:
         """

@@ -3,15 +3,14 @@ from pathlib import Path
 
 class ProcessingThread(QThread):
     """处理PDF文件的线程"""
-    processing_finished = pyqtSignal(str)  # 处理完成信号
-    processing_error = pyqtSignal(str, str)  # 处理错误信号
     
-    def __init__(self, pipeline, pdf_path, output_dir):
+    def __init__(self, pipeline, pdf_path, output_dir, data_manager):
         super().__init__()
         self.pipeline = pipeline
         self.pdf_path = pdf_path
         self.output_dir = output_dir
         self.is_running = True
+        self.data_manager = data_manager
     
     def run(self):
         try:
@@ -21,10 +20,10 @@ class ProcessingThread(QThread):
             )
             
             if self.is_running:  # 检查是否被取消
-                self.processing_finished.emit(Path(self.pdf_path).stem)
+                self.data_manager.on_processing_finished(Path(self.pdf_path).stem)
         except Exception as e:
             if self.is_running:  # 只有在线程没有被手动停止时才报告错误
-                self.processing_error.emit(Path(self.pdf_path).stem, str(e))
+                self.data_manager.on_processing_error(Path(self.pdf_path).stem, str(e))
     
     def stop(self):
         """立即停止线程处理"""

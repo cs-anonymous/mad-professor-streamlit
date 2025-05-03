@@ -195,59 +195,44 @@ class MarkdownProcessor:
                 result.append(section)
 
         return result
+    
 
     def check_section_continuity(self, sections: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """检查同级章节的编号连续性，查找并补充遗漏的章节"""
-        # 按章节编号排序
         sections.sort(key=lambda x: int(x['number'].split('.')[-1]))
-        
         all_sections = sections.copy()
-        section_numbers = [int(s['number'].split('.')[-1]) for s in sections]
+        section_numbers = [int(s['number'].split('.')[-1]) for s in all_sections]
         
-        # 检查相邻章节编号的连续性
         i = 0
-        while i < len(section_numbers) - 1:
+        while i < len(all_sections) - 1:  # 动态终止条件
             current_num = section_numbers[i]
             next_num = section_numbers[i + 1]
             
-            # 如果存在编号跳跃
             if next_num - current_num > 1:
-                current_section = sections[i]
-                # 构造章节编号前缀
-                prefix = '.'.join(current_section['number'].split('.')[:-1])
-                if prefix:
-                    prefix += '.'
+                current_section = all_sections[i]  # 使用动态列表
+                prefix = '.'.join(current_section['number'].split('.')[:-1]) + '.' if current_section['number'].count('.') > 0 else ''
                 
-                # 在当前章节内容中查找遗漏的章节
                 missing_sections, updated_content = self.find_missing_sections(
-                    '\n'.join(current_section['content']), 
-                    prefix
+                    '\n'.join(current_section['content']), prefix
                 )
                 
                 if missing_sections:
                     print(f"在 {current_section['number']} 之后找到遗漏的章节：")
                     for section in missing_sections:
                         print(f"  - {section.title}")
-                    
-                    # 更新原章节的内容
                     current_section['content'] = updated_content
-                    
-                    # 将找到的章节插入到适当位置
                     for missing_section in missing_sections:
                         missing_dict = vars(missing_section)
-                        # 确保每个章节字典都有 children 字段
                         missing_dict['children'] = []
-                        # 找到正确的插入位置
-                        insert_idx = next((j for j, s in enumerate(all_sections) 
-                                        if s['number'] > missing_section.number), len(all_sections))
+                        insert_idx = next((j for j, s in enumerate(all_sections) if s['number'] > missing_section.number), len(all_sections))
                         all_sections.insert(insert_idx, missing_dict)
                     
-                    # 更新章节编号列表
+                    # 同步更新关键变量
                     section_numbers = [int(s['number'].split('.')[-1]) for s in all_sections]
-                    i = 0  # 重新开始检查，因为可能有新的不连续性
+                    sections = all_sections.copy()
+                    i = 0  # 仅在插入后重置索引
                     continue
             
-            i += 1
+            i += 1  # 正常递增
         
         return all_sections
 
