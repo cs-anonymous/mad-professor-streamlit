@@ -16,7 +16,7 @@
 - **AI智能问答**：与论文内容结合，提供专业的解释和分析
 - **个性化AI教授**：AI以"暴躁教授"的个性回答问题，增加趣味性
 - **RAG增强检索**：基于论文内容的精准检索和定位
-- **分屏界面**：左侧论文内容，右侧AI问答，高效交互
+- **分屏界面**：左侧菜单栏管理+AI问答，高效交互
 
 ## 技术架构
 
@@ -79,22 +79,24 @@ GLOBAL_MODEL=YOUR_MODEL_NAME    # 例如：deepseek-chat
 ### 教授人设修改
 人设prompt修改:
 
-​    在`prompt`文件夹中创建一个新的`ai_character_prompt_[你的人设名字].txt`
-
-​    将`AI_professor_chat.py`程序开头`AI_CHARACTER_PROMPT_PATH`字段修改为相应的人设prompt路径
+    在`prompt`文件夹中创建一个新的`ai_character_prompt_[你的人设名字].txt`
+    
+    将`AI_professor_chat.py`程序开头`AI_CHARACTER_PROMPT_PATH`字段修改为相应的人设prompt路径
     ```
     AI_CHARACTER_PROMPT_PATH = "prompt/ai_character_prompt_[你的人设名字].txt"
     ```
-
-​    当前已有两个人设`ai_character_prompt_keli.txt`和`ai_character_prompt_leidian.txt`，可以作为示例
+    
+    当前已有两个人设`ai_character_prompt_keli.txt`和`ai_character_prompt_leidian.txt`，可以作为示例
 
 ### 导入论文
+
+![image-20250503120047713](https://n.ye-sun.com/gallery/2024/202505031200869.png)
+
 1. 点击侧边栏的"上传论文"按钮
 2. 选择PDF文件导入
 3. 点击“继续”，等待处理完成（包括翻译和索引构建）
 4. 导入的PDF会存放到data文件夹中，也可以将多篇PDF放入data文件夹，程序会检测未处理的文件批量处理
 
-    ![](assets/upload_page.jpg)
 
 ### 论文阅读
 
@@ -102,21 +104,17 @@ GLOBAL_MODEL=YOUR_MODEL_NAME    # 例如：deepseek-chat
 
 1. 在侧边栏选择已经处理好的论文
    
-    ![](assets/paper_page.png)
-
 2. 在主窗口查看论文内容，设置可切换中英文
    
-    ![](assets/language_switch.jpg)
-
 3. 左侧可折叠隐藏，提供沉浸式阅读体验
 
-    ![](assets/fold_page.png)
-    
 4. 主窗口提供可折叠目录
 
 ### AI问答
 
-目前仅支持使用文字对话，删除语音问答功能。
+![image-20250503120146860](https://n.ye-sun.com/gallery/2024/202505031201155.png)
+
+目前仅支持使用文字对话，删除语音问答功能，支持流式响应式问答。
 
 ## 项目结构
 ```
