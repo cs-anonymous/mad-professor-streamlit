@@ -29,8 +29,6 @@ class DataManager(QObject):
     """
     # 定义信号
     papers_loaded = pyqtSignal(list)                         # 论文列表加载完成信号
-    paper_content_loaded = pyqtSignal(dict, str, str)        # 论文内容加载完成信号(paper_data, zh_content, en_content)
-    
     processing_finished = pyqtSignal(str)                    # 处理完成的论文ID
     processing_error = pyqtSignal(str, str)                  # (论文ID, 错误信息)
 
@@ -71,8 +69,8 @@ class DataManager(QObject):
     def _init_directories(self, base_dir):
         """初始化基础目录结构"""
         self.base_dir = base_dir or os.path.dirname((os.path.dirname(os.path.abspath(__file__))))
-        self.output_dir = os.path.join(self.base_dir, "output")
-        self.data_dir = os.path.join(self.base_dir, "data")
+        self.output_dir = os.path.join(self.base_dir, "static", "output")
+        self.data_dir = os.path.join(self.base_dir, "static", "data")
         
         # 确保目录存在
         os.makedirs(self.output_dir, exist_ok=True)
@@ -115,44 +113,36 @@ class DataManager(QObject):
         """
         # 查找指定ID的论文
         paper = next((p for p in self.papers_index if p["id"] == paper_id), None)
-        
+        ret = {
+            'metadata': paper,
+            'article_en': "",
+            'article_zh': "",
+            "rag_md": "",
+            "rag_tree": "{}",
+        }
         if not paper:
             error(f"未找到ID为{paper_id}的论文")
-            return None, "", ""
+            return ret
         
         self.current_paper = paper
         print(f"尝试加载论文: {paper.get('translated_title', '')} ({paper_id})")
         
         # 获取路径信息
         paths = get_paths(paper_id)
-        en_path = paths.get('article_en', '')
-        zh_path = paths.get('article_zh', '')
-        en_full_path = os.path.join(self.output_dir, en_path)
-        zh_full_path = os.path.join(self.output_dir, zh_path)
-
-        print(f"尝试加载英文文档: {en_full_path}", self.output_dir)
-        print(en_path)
-        print(en_full_path)
-        
-        # 加载中文和英文内容
-        zh_content = self._load_document_content(
-            zh_full_path, 
-            f"# {paper.get('translated_title', '')}", 
-            is_chinese=True
-        )
-        
-        en_content = self._load_document_content(
-            en_full_path, 
-            f"# {paper.get('title', '')}", 
-            is_chinese=False
-        )
+        for key in ['article_en', 'article_zh', 'rag_md', 'rag_tree']:
+            path = paths.get(key, '')
+            full_path = os.path.join(self.output_dir, path)
+            print(f"尝试加载英文文档 {key}: {full_path}")
+            
+            ret[key] = self._load_document_content(
+                full_path, 
+                f"# {paper.get('translated_title', '')}", 
+                is_chinese=(key == 'article_zh')
+            )
         
         # 验证图片路径
         self._verify_images_path(paper)
-        
-        # 发送加载完成信号
-        self.paper_content_loaded.emit(paper, zh_content, en_content)
-        return paper, zh_content, en_content
+        return ret
     
     def _load_document_content(self, file_path, default_title, is_chinese=True):
         # 修复路径处理
@@ -162,8 +152,7 @@ class DataManager(QObject):
             full_path = os.path.join(self.output_dir, file_path)
             
             # 添加调试日志
-            print(f"尝试加载文件路径: {full_path}")
-            print(f"输出目录: {self.output_dir}")
+            # print(f"尝试加载文件路径: {full_path}")
         lang_desc = "中文" if is_chinese else "英文"
         
         if file_path and '\\' in file_path:
@@ -445,7 +434,6 @@ class DataManager(QObject):
         """扫描数据目录，查找未处理或处理不完整的PDF文件"""
         # 清空现有队列（不用清空！！！）
         # self.processing_queue = []
-        existing_ids = {item['id'] for item in self.papers_index}
         processing_queue_ids = {item['id'] for item in self.processing_queue}
         
         # 获取已处理论文的ID列表
@@ -457,9 +445,6 @@ class DataManager(QObject):
         # 对于每个PDF文件，检查是否已经处理
         for pdf_file in pdf_files:
             paper_id = os.path.splitext(pdf_file)[0]  # 不包含扩展名的文件名作为ID
-            if paper_id in existing_ids:
-                print(f"[DataManager] 跳过已处理文件: {pdf_file}")
-                continue
 
             if paper_id in processing_queue_ids:
                 print(f"[DataManager] 跳过正在处理的文件: {pdf_file}")

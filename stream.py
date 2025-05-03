@@ -19,8 +19,6 @@ st.set_page_config(
 # 在导入之后立即初始化session state
 if 'messages' not in st.session_state:
     st.session_state.messages = []
-if 'is_chinese' not in st.session_state:
-    st.session_state.is_chinese = True  # 将此初始化提前到文件顶部
 if 'show_log' not in st.session_state:
     st.session_state.show_log = False 
 # 在现有session_state初始化后添加
@@ -32,6 +30,8 @@ if 'ai_accumulated_response' not in st.session_state:
     st.session_state.ai_accumulated_response = ""
 if 'selected_paper' not in st.session_state:
     st.session_state.selected_paper = None    
+if 'selected_file' not in st.session_state:
+    st.session_state.selected_file = None    
 if 'ai_chat' not in st.session_state:
     st.session_state.ai_chat = AIProfessorChat()
 
@@ -134,7 +134,7 @@ def handle_file_upload():
             return
 
         # 确保路径处理正确
-        save_path = os.path.abspath(os.path.join("data", uploaded_file.name))
+        save_path = os.path.abspath(os.path.join("static", "data", uploaded_file.name))
         with open(save_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
         data_manager.upload_file(save_path)
@@ -150,10 +150,27 @@ with st.sidebar:
         selected_paper = st.selectbox(
             "选择论文",
             options=[p['id'] for p in data_manager.papers_index],
-            format_func=lambda x: next(p['title'] for p in data_manager.papers_index if p['id'] == x),
+            format_func=lambda x: next(p['translated_title'] for p in data_manager.papers_index if p['id'] == x),
             key='selected_paper',
-            on_change=change_seleted_paper
+            on_change=change_seleted_paper,
+            placeholder="请选择论文",
         )
+
+        if selected_paper:
+            selected_file = st.selectbox(
+                "选择文件",
+                options=['metadata', 'article_en', 'article_zh', 'rag_md', 'rag_tree'],
+                format_func=lambda x: {
+                    'metadata': '元数据',
+                    'article_en': '英文文档',
+                    'article_zh': '中文文档',
+                    'rag_md': 'RAG文档',
+                    'rag_tree': 'RAG树'
+                }[x],
+                key='selected_file',
+                placeholder="中文文档"
+            )
+
         col1, col2, col3 = st.columns([1,1,1])
         with col1:
             if st.button("📝 编辑论文", key="edit_paper_btn"):
@@ -213,19 +230,6 @@ with st.sidebar:
                 st.write(f"{progress_data['stage_name']}\tprogress: {progress_data['progress']}% ({progress_data['index']}/{progress_data['total']})") 
                 st.progress(progress_data['progress']/100)
 
-    
-
-    with st.expander("⚙️ 设置", expanded=True):
-        setting_col1, setting_col2 = st.columns([1, 1])
-        
-        with setting_col1:
-            # TTS开关
-            tts_enabled = st.checkbox("启用TTS语音", value=True)
-            
-        with setting_col2:
-            # 保持现有代码不变
-            # 注意一定要在main_col之前定义st.session_state['is_chinese']
-            st.session_state['is_chinese'] = st.toggle("显示中文", value=True)
             
     with st.expander("💬 AI对话", expanded=True):
         # 聊天消息显示
@@ -286,42 +290,43 @@ with main_col:
             st.error("日志文件stream.log不存在")
     elif selected_paper:
         paper = data_manager.load_paper_content(selected_paper)
-        paper = {
-            'metadata': paper[0],
-            'zh_content': paper[1],
-            'en_content': paper[2],
-        }
-        current_lang = 'zh' if st.session_state.is_chinese else 'en'
-        content = paper[f"{current_lang}_content"]
+        content = paper[selected_file] if selected_file in paper else paper['article_zh']
 
-        # Generate TOC and add anchors to content
-        import re
-        toc = []
-        content_with_anchors = content  # Initialize content with anchors
+        if selected_file in ['metadata', 'rag_tree']:
+            st.json(content, expanded=True)
+        else:
+            # Generate TOC and add anchors to content
+            import re
+            toc = []
+            content_with_anchors = content  # Initialize content with anchors
 
-        # Extract headings and generate TOC
-        def replace_heading(match):
-            level = len(match.group(1))  # Number of '#' determines the level
-            title = match.group(2)
-            anchor = title.replace(" ", "-").lower()  # Create a unique anchor
-            toc.append((level, title, anchor))  # Add to TOC
-            return f'<h{level} id="{anchor}">{title}</h{level}>'  # Add anchor to heading
+            # Extract headings and generate TOC
+            def replace_heading(match):
+                level = len(match.group(1))  # Number of '#' determines the level
+                title = match.group(2)
+                anchor = title.replace(" ", "-").lower()  # Create a unique anchor
+                toc.append((level, title, anchor))  # Add to TOC
+                return f'<h{level} id="{anchor}">{title}</h{level}>'  # Add anchor to heading
 
-        # Add anchors to content
-        content_with_anchors = re.sub(r'(?m)^(#+)\s+(.*)', replace_heading, content)
+            # Add anchors to content
+            content_with_anchors = re.sub(r'(?m)^(#+)\s+(.*)', replace_heading, content)
 
-        # Generate hierarchical TOC with indentation
-        toc_markdown = []
-        for level, title, anchor in toc:
-            indent = " " * (level - 1) * 4  # Indent based on heading level
-            toc_markdown.append(f"{indent}- [{title}](#{anchor})")
-        toc_markdown = "\n".join(toc_markdown)
+            # Generate hierarchical TOC with indentation
+            toc_markdown = []
+            for level, title, anchor in toc:
+                indent = " " * (level - 1) * 4  # Indent based on heading level
+                toc_markdown.append(f"{indent}- [{title}](#{anchor})")
+            toc_markdown = "\n".join(toc_markdown)
 
-        with st.expander("📑 目录", expanded=True):
-            st.markdown(toc_markdown, unsafe_allow_html=True)
+            with st.expander("📑 目录", expanded=True):
+                st.markdown(toc_markdown, unsafe_allow_html=True)
 
-        # Render the combined markdown
-        st.markdown(content_with_anchors, unsafe_allow_html=True)
+            image_prefix = os.path.join('app', 'static', 'output', selected_paper)
+            # Replace image paths in content
+            content_with_anchors = re.sub(r'!\[(.*?)\]\((.*?)\)', lambda m: f'![{m.group(1)}]({image_prefix}/{m.group(2)})', content_with_anchors)
+
+            # Render the combined markdown
+            st.markdown(content_with_anchors, unsafe_allow_html=True)
     
     else:
         st.markdown("""

@@ -167,3 +167,13 @@ mad-professor/
 
 ## 致谢
 特别感谢 MinerU、RealtimeSTT 项目和[林亦LYi大佬的项目](https://github.com/LYiHub/mad-professor-public)
+
+
+## 其他更新
+
+### 2025/05/03
+- 完成了项目的重构，去掉了语音交互功能，增加了RAG检索功能
+- 修复了图像路径问题，确保图像能够正确显示
+- 优化了代码结构，增强了可读性和可维护性
+
+![image-20250503160017217](https://n.ye-sun.com/gallery/2024/202505031600733.png)
