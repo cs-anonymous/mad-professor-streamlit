@@ -6,6 +6,7 @@ import json  # 添加在文件顶部
 from util.AI_professor_chat import AIProfessorChat
 import uuid
 import shutil
+import re
 
 os.environ["TORCH_DISABLE_MLOCK"] = "1"  # Disable PyTorch memory locking
 
@@ -296,7 +297,6 @@ with main_col:
             st.json(content, expanded=True)
         else:
             # Generate TOC and add anchors to content
-            import re
             toc = []
             content_with_anchors = content  # Initialize content with anchors
 
@@ -321,9 +321,22 @@ with main_col:
             with st.expander("📑 目录", expanded=True):
                 st.markdown(toc_markdown, unsafe_allow_html=True)
 
-            image_prefix = os.path.join('app', 'static', 'output', selected_paper)
-            # Replace image paths in content
-            content_with_anchors = re.sub(r'!\[(.*?)\]\((.*?)\)', lambda m: f'![{m.group(1)}]({image_prefix}/{m.group(2)})', content_with_anchors)
+            # 构造 web 端可访问的图片前缀
+            image_prefix = f"app/static/output/{selected_paper}"
+
+            def md_img_to_html(match):
+                alt = match.group(1)
+                src = match.group(2)
+                # 拼接路径并转义空格
+                src = f"{image_prefix}/{src}".replace(" ", "%20")
+                return f'<img src="{src}" alt="{alt}">'
+
+            # 替换 markdown 图片为 HTML
+            content_with_anchors = re.sub(
+                r'!\[(.*?)\]\((.*?)\)',
+                md_img_to_html,
+                content_with_anchors
+            )
 
             # Render the combined markdown
             st.markdown(content_with_anchors, unsafe_allow_html=True)
