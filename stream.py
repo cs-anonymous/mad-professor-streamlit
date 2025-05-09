@@ -7,6 +7,9 @@ from util.AI_professor_chat import AIProfessorChat
 import uuid
 import shutil
 import re
+import urllib.parse  # 添加导入
+from pypinyin import lazy_pinyin
+
 
 os.environ["TORCH_DISABLE_MLOCK"] = "1"  # Disable PyTorch memory locking
 
@@ -22,6 +25,8 @@ if 'messages' not in st.session_state:
     st.session_state.messages = []
 if 'show_log' not in st.session_state:
     st.session_state.show_log = False 
+if 'edit_mode' not in st.session_state:
+    st.session_state.edit_mode = False
 # 在现有session_state初始化后添加
 if 'ai_is_generating' not in st.session_state:
     st.session_state.ai_is_generating = False
@@ -50,20 +55,6 @@ def init_data_manager():
 # 替换原有的初始化
 data_manager = init_data_manager()
 
-# 在文件开头的import部分后添加自定义CSS
-st.markdown("""
-<style>
-/* 代码块自动换行 */
-.stCodeBlock {
-    white-space: pre-wrap !important;
-    word-wrap: break-word !important;
-}
-.stCodeBlock > div {
-    white-space: pre-wrap !important;
-    word-wrap: break-word !important;
-}
-</style>
-""", unsafe_allow_html=True)
 
 # 修改get_ai_response中的调用
 def get_ai_response(query, paper_id=None):
@@ -143,13 +134,15 @@ def change_seleted_paper():
 def handle_file_upload():
     if "uploaded_file" in st.session_state:
         uploaded_file = st.session_state.uploaded_file
+        file_id = uploaded_file.name.strip('.pdf').replace(" ", "_")[:50]
 
-        if uploaded_file.name.strip('.pdf') in [p['id'] for p in data_manager.papers_index]:
+        if file_id in [p['id'] for p in data_manager.papers_index]:
             st.error("该论文已存在，请选择其他文件")
+            del st.session_state.uploaded_file
             return
 
         # 确保路径处理正确
-        save_path = os.path.abspath(os.path.join("static", "data", uploaded_file.name))
+        save_path = os.path.abspath(os.path.join("static", "data", file_id+".pdf"))
         with open(save_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
         data_manager.upload_file(save_path)
@@ -199,8 +192,8 @@ with st.sidebar:
 
         col1, col2, col3 = st.columns([1,1,1])
         with col1:
-            if st.button("📝 编辑论文", key="edit_paper_btn"):
-                st.session_state['selected_paper'] = selected_paper
+            if st.button("📝 编辑文件", key="edit_paper_btn"):
+                st.session_state.edit_mode = True
         with col2:
             # 删除论文对应文件夹
             if st.button("🗑️ 删除论文", key="delete_paper_btn"):
@@ -212,10 +205,7 @@ with st.sidebar:
                     st.error("论文文件夹不存在")
         with col3:
             if st.button("🔄 刷新列表", key="refresh_db"):
-                data_manager.load_papers_index()
-                st.rerun()
-        
-        # 文件上传
+                data_manager.deduplicate_paper_index()
     
     
     # 修改文件上传组件
@@ -234,9 +224,11 @@ with st.sidebar:
             if data_manager.is_paused:
                 if st.button("▶️ 继续处理", key="resume_btn"):
                     data_manager.resume_processing()
+                    data_manager.is_paused = False
             else:
                 if st.button("⏸️ 暂停处理", key="pause_btn"):
                     data_manager.pause_processing()
+                    data_manager.is_paused = True
         with col2:
             if st.button("🔄 更新进度", key="scan"):
                 data_manager.scan_for_unprocessed_files()
@@ -247,7 +239,7 @@ with st.sidebar:
         if data_manager.processing_queue:
             for item in data_manager.processing_queue:
                 status_icon = {"pending": "⏳", "processing": "🔄", "completed": "✅", "failed": "❌", "incomplete": "🔧"}[item['status']]
-                st.write(f"{status_icon} {item['id']} - {item['status']}")
+                st.write(f"{status_icon} ({item['status']}) {item['id']}")
             
             current_item = data_manager.processing_queue[0] if data_manager.processing_queue else None
             if current_item:
@@ -318,58 +310,89 @@ with main_col:
         paper = data_manager.load_paper_content(selected_paper)
         content = paper[selected_file] if selected_file in paper else paper['article_zh']
 
-        show_source_file_types = ['article_en', 'article_zh', 'rag_md']
-        if selected_file in show_source_file_types and st.session_state.get('show_markdown_source', False):
-            # 修改显示方式，添加height参数使其占满可用空间
-            st.code(content, language="markdown", line_numbers=True, wrap_lines=True)
-        elif selected_file in ['metadata', 'rag_tree']:
-            st.json(content, expanded=True)
-        else:
-            # 渲染视图
-            # Generate TOC and add anchors to content
-            toc = []
-            content_with_anchors = content  # Initialize content with anchors
-
-            # Extract headings and generate TOC
-            def replace_heading(match):
-                level = len(match.group(1))  # Number of '#' determines the level
-                title = match.group(2)
-                anchor = title.replace(" ", "-").lower()  # Create a unique anchor
-                toc.append((level, title, anchor))  # Add to TOC
-                return f'<h{level} id="{anchor}">{title}</h{level}>'  # Add anchor to heading
-
-            # Add anchors to content
-            content_with_anchors = re.sub(r'(?m)^(#+)\s+(.*)', replace_heading, content)
-
-            # Generate hierarchical TOC with indentation
-            toc_markdown = []
-            for level, title, anchor in toc:
-                indent = " " * (level - 1) * 4  # Indent based on heading level
-                toc_markdown.append(f"{indent}- [{title}](#{anchor})")
-            toc_markdown = "\n".join(toc_markdown)
-
-            with st.expander("📑 目录", expanded=True):
-                st.markdown(toc_markdown, unsafe_allow_html=True)
-
-            # 构造 web 端可访问的图片前缀
-            image_prefix = f"app/static/output/{selected_paper}"
-
-            def md_img_to_html(match):
-                alt = match.group(1)
-                src = match.group(2)
-                # 拼接路径并转义空格
-                src = f"{image_prefix}/{src}".replace(" ", "%20")
-                return f'<img src="{src}" alt="{alt}">'
-
-            # 替换 markdown 图片为 HTML
-            content_with_anchors = re.sub(
-                r'!\[(.*?)\]\((.*?)\)',
-                md_img_to_html,
-                content_with_anchors
+        # 添加编辑模式判断
+        if st.session_state.edit_mode:
+            # 编辑模式显示文本编辑框
+            if selected_file in ['metadata', 'rag_tree']:
+                content = json.dumps(content, indent=4, ensure_ascii=False)
+            edited_content = st.text_area(
+                "编辑内容",
+                value=content,
+                height=600,
+                key="edit_content"
             )
+            if st.button("保存修改"):
+                # 这里可以添加保存逻辑
+                data_manager.save_file(selected_paper, selected_file, edited_content)
+                st.session_state.edit_mode = False
+                st.success("修改已保存")
 
-            # Render the combined markdown
-            st.markdown(content_with_anchors, unsafe_allow_html=True)
+        else:
+            # 原有内容渲染逻辑
+            show_source_file_types = ['article_en', 'article_zh', 'rag_md']
+            if selected_file in show_source_file_types and st.session_state.get('show_markdown_source', False):
+                # 修改显示方式，添加height参数使其占满可用空间
+                st.code(content, language="markdown", line_numbers=True, wrap_lines=True)
+            elif selected_file in ['metadata', 'rag_tree']:
+                st.json(content, expanded=True)
+            else:
+                # Generate TOC and add anchors to content
+                toc = []
+                content_with_anchors = content  # Initialize content with anchors
+
+                # Extract headings and generate TOC
+                def replace_heading(match):
+                    level = len(match.group(1))  # Number of '#' determines the level
+                    title = match.group(2).strip()  # Remove leading/trailing spaces
+                    # Convert Chinese characters to pinyin
+                    title_ascii = ''.join(lazy_pinyin(title))
+                    anchor = urllib.parse.quote(title_ascii.replace(' ', '-').lower(), safe='')
+                    toc.append((level, title, anchor))  # Add to TOC
+                    return f'<h{level} id="{anchor}" data-custom-id="{anchor}">{title}</h{level}>'  # Add anchor to heading
+
+                # Add anchors to content
+                content_with_anchors = re.sub(r'(?m)^(#+)\s+(.*)', replace_heading, content)
+                toc_markdown = []
+                for level, title, anchor in toc:
+                    indent = " " * (level - 1) * 4  # Indent based on heading level
+                    toc_markdown.append(f"{indent}- [{title}](#{anchor})")
+                toc_markdown = "\n".join(toc_markdown)
+                print("📑 生成目录完成", toc)
+
+                with st.expander("📑 目录", expanded=True):
+                    st.markdown(toc_markdown, unsafe_allow_html=True)
+
+                image_prefix = os.path.join('app', 'static', 'output', selected_paper)
+                # 如果路径中出现了空格，替换为%20
+                image_prefix = image_prefix.replace(" ", "%20")
+                # Replace image paths in content
+                content_with_anchors = re.sub(r'!\[(.*?)\]\((.*?)\)', lambda m: f'![{m.group(1)}]({image_prefix}/{m.group(2)})', content_with_anchors)
+
+                print("📷 替换图片路径完成", content_with_anchors)
+                # Render the combined markdown
+                st.markdown(content_with_anchors, unsafe_allow_html=True)
+
+                # 没有输出是因为 Streamlit 的 st.components.v1.html 注入的 JavaScript 代码运行在一个 iframe 中
+                # JavaScript 代码无法直接访问主页面的 DOM，因此无法修改主页面的标题 id。
+                st.components.v1.html("""
+                <script>
+                    function checkHeaders() {
+                        console.log('Checking and updating headers...');
+                        parent.document.querySelectorAll("h1, h2, h3, h4, h5, h6").forEach((el) => {
+                            const customId = el.getAttribute('data-custom-id');
+                            if (customId && el.id !== customId) {
+                                el.id = customId;  // 替换 Streamlit 自动生成的 ID
+                                console.log(`Updated ID: ${customId}`);
+                            }
+                        });
+                    }
+
+                    // 每隔2秒检查一次
+                    // setInterval(() => checkHeaders(), 2000);
+                    setTimeout(() => checkHeaders(), 1000);  // 初始调用
+                    setTimeout(() => checkHeaders(), 2000);  // 初始调用
+                </script>
+                """, height=0)
     
     else:
         st.markdown("""

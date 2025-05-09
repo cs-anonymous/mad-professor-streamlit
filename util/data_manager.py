@@ -100,6 +100,62 @@ class DataManager(QObject):
             error(f"加载论文索引失败: {str(e)}")
     
     # ========== 论文内容加载 ==========
+    def deduplicate_paper_index(self):
+        """去重论文索引数据"""
+        unique_papers = []
+        seen_ids = set()
+        
+        for paper in self.papers_index:
+            if paper['id'] not in seen_ids:
+                unique_papers.append(paper)
+                seen_ids.add(paper['id'])
+        
+        self.papers_index = unique_papers
+        print(f"去重完成，剩余论文数量: {len(self.papers_index)}")
+        self.save_papers_index()
+
+
+    def save_papers_index(self):
+        """保存论文索引数据"""
+        try:
+            index_path = os.path.join(self.output_dir, "papers_index.json")
+            with open(index_path, 'w', encoding='utf-8') as f:
+                json.dump(self.papers_index, f, ensure_ascii=False, indent=4)
+            print(f"成功保存论文索引到 {index_path}")
+        except Exception as e:
+            error(f"保存论文索引失败: {str(e)}")
+
+    def save_file(self, paper_id, file_type, content):
+        """
+        保存文件到指定路径
+
+        Args:
+            paper_id: 论文ID
+            file_type: 文件类型（article_en, article_zh, rag_md, rag_tree）
+            content: 文件内容
+        """
+        if file_type == "metadata":
+            # 保存元数据到papers_index
+            paper = next((p for p in self.papers_index if p["id"] == paper_id), None)
+            if paper:
+                content = json.loads(content)
+                paper.update(content)
+                self.save_papers_index()
+            return
+
+        paths = get_paths(paper_id)
+        file_path = paths.get(file_type, '')
+        if not file_path:
+            error(f"无效的文件类型: {file_type}")
+            return
+        full_path = os.path.join(self.output_dir, file_path)
+        try:
+            with open(full_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            print(f"文件保存成功: {full_path}")
+        except Exception as e:
+            error(f"保存文件失败: {str(e)}")
+
     
     def load_paper_content(self, paper_id):
         """
