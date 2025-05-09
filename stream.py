@@ -32,7 +32,7 @@ if 'ai_accumulated_response' not in st.session_state:
 if 'selected_paper' not in st.session_state:
     st.session_state.selected_paper = None    
 if 'selected_file' not in st.session_state:
-    st.session_state.selected_file = None    
+    st.session_state.selected_file = 'article_zh'    # 设置默认值为中文文档
 if 'ai_chat' not in st.session_state:
     st.session_state.ai_chat = AIProfessorChat()
 
@@ -50,6 +50,20 @@ def init_data_manager():
 # 替换原有的初始化
 data_manager = init_data_manager()
 
+# 在文件开头的import部分后添加自定义CSS
+st.markdown("""
+<style>
+/* 代码块自动换行 */
+.stCodeBlock {
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+}
+.stCodeBlock > div {
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # 修改get_ai_response中的调用
 def get_ai_response(query, paper_id=None):
@@ -169,8 +183,19 @@ with st.sidebar:
                     'rag_tree': 'RAG树'
                 }[x],
                 key='selected_file',
-                placeholder="中文文档"
+                placeholder="中文文档",
+                index=2  # 设置默认选中'article_zh'（第3个选项）
             )
+
+            # 新增：显示/隐藏Markdown原文按钮（放在侧边栏）
+            show_source_file_types = ['article_en', 'article_zh', 'rag_md']
+            if selected_file in show_source_file_types:
+                if 'show_markdown_source' not in st.session_state:
+                    st.session_state['show_markdown_source'] = False
+                btn_label = "显示Markdown源码" if not st.session_state['show_markdown_source'] else "渲染Markdown视图"
+                if st.button(btn_label, key="toggle_md_source_btn_sidebar"):
+                    st.session_state['show_markdown_source'] = not st.session_state['show_markdown_source']
+                    st.rerun()  # 添加rerun()来解决按钮点击两次的问题
 
         col1, col2, col3 = st.columns([1,1,1])
         with col1:
@@ -293,9 +318,14 @@ with main_col:
         paper = data_manager.load_paper_content(selected_paper)
         content = paper[selected_file] if selected_file in paper else paper['article_zh']
 
-        if selected_file in ['metadata', 'rag_tree']:
+        show_source_file_types = ['article_en', 'article_zh', 'rag_md']
+        if selected_file in show_source_file_types and st.session_state.get('show_markdown_source', False):
+            # 修改显示方式，添加height参数使其占满可用空间
+            st.code(content, language="markdown", line_numbers=True)
+        elif selected_file in ['metadata', 'rag_tree']:
             st.json(content, expanded=True)
         else:
+            # 渲染视图
             # Generate TOC and add anchors to content
             toc = []
             content_with_anchors = content  # Initialize content with anchors
