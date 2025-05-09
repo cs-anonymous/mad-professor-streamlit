@@ -321,7 +321,7 @@ with main_col:
         show_source_file_types = ['article_en', 'article_zh', 'rag_md']
         if selected_file in show_source_file_types and st.session_state.get('show_markdown_source', False):
             # 修改显示方式，添加height参数使其占满可用空间
-            st.code(content, language="markdown", line_numbers=True)
+            st.code(content, language="markdown", line_numbers=True, wrap_lines=True)
         elif selected_file in ['metadata', 'rag_tree']:
             st.json(content, expanded=True)
         else:
