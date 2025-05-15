@@ -26,7 +26,7 @@ if 'messages' not in st.session_state:
 if 'show_log' not in st.session_state:
     st.session_state.show_log = False 
 if 'edit_mode' not in st.session_state:
-    st.session_state.edit_mode = False 
+    st.session_state.edit_mode = False
 # 在现有session_state初始化后添加
 if 'ai_is_generating' not in st.session_state:
     st.session_state.ai_is_generating = False
@@ -37,7 +37,7 @@ if 'ai_accumulated_response' not in st.session_state:
 if 'selected_paper' not in st.session_state:
     st.session_state.selected_paper = None    
 if 'selected_file' not in st.session_state:
-    st.session_state.selected_file = None    
+    st.session_state.selected_file = 'article_zh'    # 设置默认值为中文文档
 if 'ai_chat' not in st.session_state:
     st.session_state.ai_chat = AIProfessorChat()
 
@@ -176,8 +176,19 @@ with st.sidebar:
                     'rag_tree': 'RAG树'
                 }[x],
                 key='selected_file',
-                placeholder="中文文档"
+                placeholder="中文文档",
+                index=2  # 设置默认选中'article_zh'（第3个选项）
             )
+
+            # 新增：显示/隐藏Markdown原文按钮（放在侧边栏）
+            show_source_file_types = ['article_en', 'article_zh', 'rag_md']
+            if selected_file in show_source_file_types:
+                if 'show_markdown_source' not in st.session_state:
+                    st.session_state['show_markdown_source'] = False
+                btn_label = "显示Markdown源码" if not st.session_state['show_markdown_source'] else "渲染Markdown视图"
+                if st.button(btn_label, key="toggle_md_source_btn_sidebar"):
+                    st.session_state['show_markdown_source'] = not st.session_state['show_markdown_source']
+                    st.rerun()  # 添加rerun()来解决按钮点击两次的问题
 
         col1, col2, col3 = st.columns([1,1,1])
         with col1:
@@ -298,7 +309,7 @@ with main_col:
     elif selected_paper:
         paper = data_manager.load_paper_content(selected_paper)
         content = paper[selected_file] if selected_file in paper else paper['article_zh']
-        
+
         # 添加编辑模式判断
         if st.session_state.edit_mode:
             # 编辑模式显示文本编辑框
@@ -318,13 +329,17 @@ with main_col:
 
         else:
             # 原有内容渲染逻辑
-            if selected_file in ['metadata', 'rag_tree']:
+            show_source_file_types = ['article_en', 'article_zh', 'rag_md']
+            if selected_file in show_source_file_types and st.session_state.get('show_markdown_source', False):
+                # 修改显示方式，添加height参数使其占满可用空间
+                st.code(content, language="markdown", line_numbers=True, wrap_lines=True)
+            elif selected_file in ['metadata', 'rag_tree']:
                 st.json(content, expanded=True)
             else:
                 # Generate TOC and add anchors to content
                 toc = []
                 content_with_anchors = content  # Initialize content with anchors
-        
+
                 # Extract headings and generate TOC
                 def replace_heading(match):
                     level = len(match.group(1))  # Number of '#' determines the level
@@ -346,7 +361,7 @@ with main_col:
 
                 with st.expander("📑 目录", expanded=True):
                     st.markdown(toc_markdown, unsafe_allow_html=True)
-            
+
                 image_prefix = os.path.join('app', 'static', 'output', selected_paper)
                 # 如果路径中出现了空格，替换为%20
                 image_prefix = image_prefix.replace(" ", "%20")
@@ -371,7 +386,7 @@ with main_col:
                             }
                         });
                     }
-                    
+
                     // 每隔2秒检查一次
                     // setInterval(() => checkHeaders(), 2000);
                     setTimeout(() => checkHeaders(), 1000);  // 初始调用
